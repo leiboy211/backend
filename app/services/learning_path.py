@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
 import json
 import logging
 import re
@@ -87,6 +88,15 @@ DIMENSION_DEFINITIONS = {
 LEVEL_ORDER = ["Beginner", "Intermediate", "Advanced"]
 VALID_DIFFICULTIES = set(LEVEL_ORDER)
 VALID_STEP_TYPES = {"Project", "Skill", "Certification", "Course"}
+
+
+def _stable_rotate(items: list[dict], personalization_key: str, namespace: str) -> list[dict]:
+    """Apply stable account-specific ordering without making recommendations random."""
+    if len(items) < 2 or not personalization_key:
+        return items
+    digest = hashlib.sha256(f"{namespace}:{personalization_key}".encode("utf-8")).digest()
+    offset = int.from_bytes(digest[:4], "big") % len(items)
+    return items[offset:] + items[:offset]
 
 COMPETENCY_ACTIVITY_MAP = {
     "frontend_engineering": {
@@ -742,7 +752,7 @@ def generate_personalized_learning_path(
     return _normalize_steps({"steps": steps[:max_steps]}, max_steps=max_steps)
 
 
-def _rule_based_learning_path(repos: list[dict]) -> list[dict]:
+def _rule_based_learning_path(repos: list[dict], personalization_key: str = "") -> list[dict]:
     if not repos:
         return _normalize_steps(
             {
@@ -913,10 +923,11 @@ def _rule_based_learning_path(repos: list[dict]) -> list[dict]:
 
     # Keep the path grounded in actual repository signals instead of padding it
     # with generic contract filler steps that may not match the student's work.
-    return _normalize_steps({"steps": steps[:8]}, max_steps=8, enforce_contract=False)
+    steps = _stable_rotate(steps[:8], personalization_key, "main-learning-path")
+    return _normalize_steps({"steps": steps}, max_steps=8, enforce_contract=False)
 
 
-def _rule_based_project_path(repo: dict) -> list[dict]:
+def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[dict]:
     tokens = _repo_tokens(repo)
     langs = []
     if isinstance(repo.get("languages"), list):
@@ -1142,7 +1153,7 @@ def _rule_based_project_path(repo: dict) -> list[dict]:
         steps[last_index]["estimated_xp"] = steps[last_index]["reward_xp"]
         steps[last_index]["difficulty"] = progression[min(start_index + last_index, len(progression) - 1)]
 
-    return steps[:5]
+    return _stable_rotate(steps[:5], personalization_key, f"project-learning-path:{repo_name}")
 
 
 def _normalize_steps(payload: dict, max_steps: int = 8, enforce_contract: bool = True) -> list[dict]:

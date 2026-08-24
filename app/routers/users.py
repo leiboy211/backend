@@ -1861,6 +1861,7 @@ def get_learning_path(
     competency_levels = build_competency_levels(practice_dimensions)
     skill_gaps = identify_skill_gaps(competency_levels)
     signals = build_signal_set(summaries, include_repo_identity=False)
+    signals.add(f"personalization:{username}")
     baseline_payload = portfolio_settings.learning_path_baseline or []
     baseline_signals_list: list[str] = []
     cached_signals_list: list[str] = []
@@ -1884,6 +1885,7 @@ def get_learning_path(
                 detected_skills=detected_skills,
                 project_keywords=project_keywords,
                 practice_dimensions=practice_dimensions,
+                personalization_key=username,
             )
         except Exception:
             steps = generate_personalized_learning_path(competency_levels, summaries)
@@ -1911,6 +1913,7 @@ def get_learning_path(
                 detected_skills=detected_skills,
                 project_keywords=project_keywords,
                 practice_dimensions=practice_dimensions,
+                personalization_key=username,
             )
         except Exception:
             steps = generate_personalized_learning_path(competency_levels, summaries)
@@ -1963,6 +1966,7 @@ def get_learning_path(
                 detected_skills=detected_skills,
                 project_keywords=project_keywords,
                 practice_dimensions=practice_dimensions,
+                personalization_key=username,
             )
         except Exception:
             steps = generate_personalized_learning_path(competency_levels, summaries)
@@ -3761,6 +3765,7 @@ def get_project_learning_paths(
         detected_skills=detected_skills,
         project_keywords=project_keywords,
         practice_dimensions=practice_dimensions,
+        personalization_key=username,
     )
     project_baseline = dict(portfolio_settings.project_learning_path_baseline or {})
     if not projects and isinstance(project_baseline, dict):
@@ -3787,6 +3792,7 @@ def get_project_learning_paths(
         repo_name = project.get("repo_name") or "Unnamed repo"
         repo = next((item for item in summaries if item.get("name") == repo_name), None)
         repo_signals = build_signal_set([repo] if repo else [], include_repo_identity=False)
+        repo_signals.add(f"personalization:{username}")
         baseline_key = _project_baseline_key(project_baseline, repo_name)
         baseline_entry = project_baseline.get(baseline_key) or []
         baseline_signals_list: list[str] = []
