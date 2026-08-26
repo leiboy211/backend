@@ -6,6 +6,9 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+import requests
+
+from app.core.config import settings
 from app.services.inference_utils import _normalize_inference
 from app.services.learning_path import _normalize_steps
 
@@ -52,6 +55,9 @@ def _load_generator(model_name: str):
 
 
 def warmup_model(model_name: str) -> None:
+    if settings.hf_token:
+        logger.info("Skipping local FLAN-T5 warmup; inference is configured through Hugging Face API.")
+        return
     try:
         _load_generator(model_name)
         logger.info("FLAN-T5 warmup completed for %s", model_name)
@@ -65,6 +71,8 @@ def _generate_json(model_name: str, prompt: str, max_new_tokens: int = 512) -> d
 
 
 def _generate_text(model_name: str, prompt: str, max_new_tokens: int = 512) -> str:
+    if settings.hf_token:
+        return _generate_text_remote(model_name, prompt, max_new_tokens=max_new_tokens)
     try:
         generator = _load_generator(model_name)
         result = generator(
@@ -80,6 +88,47 @@ def _generate_text(model_name: str, prompt: str, max_new_tokens: int = 512) -> s
     if not result:
         return ""
     return str(result[0].get("generated_text") or "").strip()
+
+
+def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 512) -> str:
+    base_url = (settings.hf_endpoint_url or "").rstrip("/")
+    if not base_url:
+        raise RuntimeError("Hugging Face inference endpoint is not configured.")
+
+    endpoint = base_url if base_url.endswith(model_name) else f"{base_url}/{model_name}"
+    try:
+        response = requests.post(
+            endpoint,
+            headers={
+                "Authorization": f"Bearer {settings.hf_token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": max_new_tokens,
+                    "do_sample": False,
+                    "return_full_text": False,
+                },
+                "options": {"wait_for_model": True},
+            },
+            timeout=60,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.RequestException as exc:
+        logger.error("Hugging Face API inference failed: %s", str(exc)[:240])
+        raise RuntimeError("Hugging Face API inference failed.") from exc
+
+    if isinstance(payload, list) and payload:
+        generated = payload[0].get("generated_text")
+    elif isinstance(payload, dict):
+        generated = payload.get("generated_text")
+    else:
+        generated = None
+    if not generated:
+        raise RuntimeError("Hugging Face API returned no generated text.")
+    return str(generated).strip()
 
 
 def _repo_signal_text(repos: list[dict]) -> str:

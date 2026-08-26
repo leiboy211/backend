@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     github_client_secret: str
     github_redirect_uri: str
 
+    hf_token: str | None = None
+    hf_endpoint_url: str = "https://api-inference.huggingface.co/models"
     flan_t5_model: str | None = None
     model_alias: str | None = None
     use_llm_refiner: bool | None = None
