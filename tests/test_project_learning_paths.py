@@ -11,6 +11,7 @@ def test_infer_project_learning_paths_includes_all_repos(monkeypatch):
         fallback_projects,
         max_projects=None,
         max_steps_per_project=5,
+        personalization_key="",
     ):
         captured["repos_count"] = len(repos)
         captured["fallback_count"] = len(fallback_projects)

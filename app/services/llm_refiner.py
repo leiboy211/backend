@@ -487,6 +487,7 @@ def generate_project_learning_paths(
     fallback_projects: list[dict],
     max_projects: int | None = None,
     max_steps_per_project: int = 5,
+    personalization_key: str = "",
 ) -> list[dict]:
     if not fallback_projects or not _enabled():
         return fallback_projects
@@ -514,6 +515,8 @@ def generate_project_learning_paths(
         "- Allowed type values: Project, Skill, Certification, Course.\n"
         "- Allowed difficulty values: Beginner, Intermediate, Advanced.\n"
         "- Do not invent repository names.\n\n"
+        "- Vary the milestone emphasis and ordering when the student-specific key differs, while keeping every step grounded in the repository evidence.\n"
+        f"Student-specific path key: {personalization_key}\n"
         f"Practice dimensions: {json.dumps(compact_dimensions, ensure_ascii=False)}\n"
         f"Repositories: {json.dumps(compact_repos, ensure_ascii=False)}\n"
         f"Fallback project paths: {json.dumps(compact_projects, ensure_ascii=False)}"
