@@ -55,8 +55,8 @@ def _load_generator(model_name: str):
 
 
 def warmup_model(model_name: str) -> None:
-    if settings.hf_token:
-        logger.info("Skipping local FLAN-T5 warmup; inference is configured through Hugging Face API.")
+    if settings.hf_space_url or settings.hf_token:
+        logger.info("Skipping local FLAN-T5 warmup; inference is configured through a remote API.")
         return
     try:
         _load_generator(model_name)
@@ -71,7 +71,7 @@ def _generate_json(model_name: str, prompt: str, max_new_tokens: int = 512) -> d
 
 
 def _generate_text(model_name: str, prompt: str, max_new_tokens: int = 512) -> str:
-    if settings.hf_token:
+    if settings.hf_space_url or settings.hf_token:
         return _generate_text_remote(model_name, prompt, max_new_tokens=max_new_tokens)
     try:
         generator = _load_generator(model_name)
@@ -91,6 +91,22 @@ def _generate_text(model_name: str, prompt: str, max_new_tokens: int = 512) -> s
 
 
 def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 512) -> str:
+    if settings.hf_space_url:
+        try:
+            from gradio_client import Client
+
+            client = Client(
+                settings.hf_space_url.rstrip("/"),
+                hf_token=settings.hf_token or None,
+            )
+            result = client.predict(prompt, api_name="/generate")
+        except Exception as exc:
+            logger.error("Hugging Face Space inference failed: %s", str(exc)[:240])
+            raise RuntimeError("Hugging Face Space inference failed.") from exc
+        if not result:
+            raise RuntimeError("Hugging Face Space returned no generated text.")
+        return str(result).strip()
+
     base_url = (settings.hf_endpoint_url or "").rstrip("/")
     if not base_url:
         raise RuntimeError("Hugging Face inference endpoint is not configured.")

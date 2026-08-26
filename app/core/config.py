@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     github_redirect_uri: str
 
     hf_token: str | None = None
+    hf_space_url: str | None = None
     hf_endpoint_url: str = "https://router.huggingface.co/hf-inference"
     flan_t5_model: str | None = None
     model_alias: str | None = None
