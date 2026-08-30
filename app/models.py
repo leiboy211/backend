@@ -201,6 +201,66 @@ class LearningProgress(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class LearningPath(Base):
+    """Normalized, queryable learning path header per student/repository."""
+
+    __tablename__ = "learning_paths"
+    __table_args__ = (
+        UniqueConstraint("user_id", "repo_name", "path_level", name="uq_learning_paths_user_repo_level"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    repo_name = Column(String(200), nullable=False, index=True)
+    path_level = Column(Integer, default=1, nullable=False)
+    status = Column(String(20), default="active", nullable=False)
+    progress_percent = Column(Integer, default=0, nullable=False)
+    personalization_key = Column(String(128), nullable=True)
+    source_profile = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class LearningPathStage(Base):
+    """One concrete, ordered skill stage belonging to a normalized path."""
+
+    __tablename__ = "learning_path_stages"
+    __table_args__ = (
+        UniqueConstraint("learning_path_id", "stage_index", name="uq_learning_path_stage_order"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    learning_path_id = Column(Integer, ForeignKey("learning_paths.id"), nullable=False, index=True)
+    stage_index = Column(Integer, nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    stage_type = Column(String(30), default="Skill", nullable=False)
+    tag = Column(String(120), nullable=True)
+    difficulty = Column(String(30), default="Beginner", nullable=False)
+    reward_xp = Column(Integer, default=0, nullable=False)
+    resources = Column(JSON, default=dict)
+    evidence = Column(JSON, default=list)
+    status = Column(String(20), default="todo", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class StageProgressUpdate(Base):
+    """Student proof/history for one normalized skill stage."""
+
+    __tablename__ = "stage_progress_updates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    learning_path_stage_id = Column(Integer, ForeignKey("learning_path_stages.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    comment = Column(Text, nullable=True)
+    proof_items = Column(JSON, default=list)
+    review_status = Column(String(20), default="pending", nullable=False)
+    admin_feedback = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class XpHistory(Base):
     __tablename__ = "xp_history"
 

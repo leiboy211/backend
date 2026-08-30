@@ -114,6 +114,7 @@ from app.models import EngagementCommit, XpHistory
 from app.services.engagement_service import week_start_for_date
 from app.services.certificate_sync import get_freecodecamp_stats, sync_freecodecamp_certificates
 from app.services.badge_sync import upsert_badges
+from app.services.normalized_learning_paths import sync_project_learning_paths
 
 
 router = APIRouter(prefix="/api", tags=["users"])
@@ -3881,6 +3882,12 @@ def get_project_learning_paths(
             }
         )
     portfolio_settings.project_learning_path_baseline = {**project_baseline}
+    sync_project_learning_paths(
+        db,
+        user.id,
+        projects_with_progress,
+        personalization_key=username,
+    )
     flag_modified(portfolio_settings, "project_learning_path_baseline")
     db.commit()
     return {"username": user.username, "projects": projects_with_progress}
