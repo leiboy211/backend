@@ -443,7 +443,7 @@ def infer_project_learning_paths(
         {
             "repo_name": str(repo.get("name") or "Unnamed repo"),
                 "steps": _normalize_steps(
-                    {"steps": _rule_based_project_path(repo, personalization_key=personalization_key)},
+                    {"steps": _rule_based_project_path(repo, personalization_key=personalization_key, practice_dimensions=practice_dimensions)},
                 max_steps=5,
                 enforce_contract=False,
             ),
@@ -461,14 +461,60 @@ def infer_project_learning_paths(
     except Exception as exc:
         logger.warning("LLM refiner failed for project learning paths, using fallback projects: %s", exc)
         projects = fallback_projects
+
+    # Preserve the deterministic repository-domain milestone even when the
+    # optional refiner returns a generic-looking path. The refiner can enrich
+    # wording, but it should not erase the repo-specific learning focus.
+    fallback_by_repo = {
+        str(project.get("repo_name") or "").strip(): project
+        for project in fallback_projects
+    }
+    for project in projects:
+        repo_name = str(project.get("repo_name") or "").strip()
+        fallback = fallback_by_repo.get(repo_name) or {}
+        fallback_steps = fallback.get("steps") or []
+        project_steps = list(project.get("steps") or [])
+        if not fallback_steps or not project_steps:
+            continue
+        anchor = fallback_steps[0]
+        anchor_tag = str(anchor.get("tag") or "").strip().lower()
+        has_anchor = any(
+            anchor_tag and (
+                str(step.get("tag") or "").strip().lower() == anchor_tag
+                or anchor_tag in [str(tag).strip().lower() for tag in (step.get("tags") or [])]
+            )
+            for step in project_steps
+        )
+        if not has_anchor:
+            project["steps"] = [anchor, *project_steps][:5]
+
+        # Remove repeated LLM milestones and backfill from the repository-
+        # specific fallback so every visible stage has a distinct purpose.
+        deduped_steps: list[dict] = []
+        seen_step_keys: set[str] = set()
+        for step in list(project.get("steps") or []):
+            step_key = " ".join(
+                str(step.get("title") or step.get("description") or "").lower().split()
+            )
+            if not step_key or step_key in seen_step_keys:
+                continue
+            seen_step_keys.add(step_key)
+            deduped_steps.append(step)
+        for fallback_step in fallback_steps:
+            if len(deduped_steps) >= 5:
+                break
+            fallback_key = " ".join(
+                str(fallback_step.get("title") or fallback_step.get("description") or "").lower().split()
+            )
+            if fallback_key and fallback_key not in seen_step_keys:
+                seen_step_keys.add(fallback_key)
+                deduped_steps.append(fallback_step)
+        if deduped_steps:
+            project["steps"] = deduped_steps[:5]
+
     if not model_signal:
         return projects
     for project in projects:
-        project["steps"] = _stable_rotate(
-            list(project.get("steps") or []),
-            personalization_key,
-            f"project-learning-path-final:{project.get('repo_name') or ''}",
-        )
         for step in project.get("steps") or []:
             step["ai_explanation"] = (
                 f"Hybrid recommendation: FLAN-T5 practice signals ({model_signal}) were combined with "

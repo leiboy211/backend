@@ -927,7 +927,11 @@ def _rule_based_learning_path(repos: list[dict], personalization_key: str = "") 
     return _normalize_steps({"steps": steps}, max_steps=8, enforce_contract=False)
 
 
-def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[dict]:
+def _rule_based_project_path(
+    repo: dict,
+    personalization_key: str = "",
+    practice_dimensions: list[dict] | None = None,
+) -> list[dict]:
     tokens = _repo_tokens(repo)
     langs = []
     if isinstance(repo.get("languages"), list):
@@ -1087,6 +1091,90 @@ def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[
     repo_name = repo.get("name") or "this project"
     steps: list[dict] = []
 
+    # Use the account key and weakest detected dimension to select a stable
+    # emphasis. Different students can work on the same repo type without
+    # receiving identical wording and progression goals.
+    variant_seed = f"{personalization_key}:{repo_name}:{_dimension_key_from_label(str((practice_dimensions or [{}])[0].get('label') or ''))}"
+    variant = int.from_bytes(hashlib.sha256(variant_seed.encode("utf-8")).digest()[:2], "big") % 3
+    emphasis = ["implementation", "quality and edge cases", "portfolio-ready delivery"][variant]
+
+    # Start each repository with a domain milestone before adding the shared
+    # quality/deployment stages. This keeps the curriculum consistent while
+    # making the path materially different for the kind of product being built.
+    domain_step: dict | None = None
+    if any(token in tokens for token in {"shop", "store", "cart", "checkout", "ecommerce", "e-commerce", "inventory", "pos"}):
+        domain_step = {
+            "title": f"Design a reliable product-to-order flow for {repo_name}",
+            "reason": "Commerce signals were detected. Strengthen the path by making the core catalog, cart, and order journey explicit and testable.",
+            "tag": "product-workflow",
+            "tags": ["project", "ecommerce", "product-workflow"],
+        }
+    elif any(token in tokens for token in {"login", "register", "auth", "authentication", "jwt", "oauth", "rbac", "session"}):
+        domain_step = {
+            "title": f"Harden authentication and access control in {repo_name}",
+            "reason": "Authentication or authorization signals were detected. Focus first on secure identity flows, role boundaries, and protected resources.",
+            "tag": "security",
+            "tags": ["project", "auth", "security", "rbac"],
+        }
+    elif any(token in tokens for token in {"dashboard", "analytics", "admin", "management", "reporting", "crm"}):
+        domain_step = {
+            "title": f"Turn {repo_name} into an evidence-driven dashboard",
+            "reason": "Dashboard and analytics signals were detected. Improve the main workflow with clear data states, useful filters, and accessible visual feedback.",
+            "tag": "dashboard",
+            "tags": ["project", "dashboard", "ui", "data-visualization"],
+        }
+    elif any(token in tokens for token in {"mobile", "android", "ios", "flutter", "kotlin", "swift", "react-native"}):
+        domain_step = {
+            "title": f"Build a mobile-first user flow for {repo_name}",
+            "reason": "Mobile development signals were detected. Prioritize touch-friendly interaction, device states, and a complete flow that works on smaller screens.",
+            "tag": "mobile",
+            "tags": ["project", "mobile", "ux", "responsive"],
+        }
+    elif any(token in tokens for token in {"game", "unity", "pygame", "phaser", "canvas", "gameplay"}):
+        domain_step = {
+            "title": f"Polish one complete gameplay loop in {repo_name}",
+            "reason": "Game-development signals were detected. Create a playable loop with clear input, state changes, feedback, and a restart or progression condition.",
+            "tag": "gameplay",
+            "tags": ["project", "game", "gameplay", "user-feedback"],
+        }
+    elif is_data_repo:
+        domain_step = {
+            "title": f"Make the data workflow reproducible in {repo_name}",
+            "reason": "Data and ML signals were detected. Focus on a repeatable pipeline from input data to analysis or model output, with assumptions documented.",
+            "tag": "data-pipeline",
+            "tags": ["project", "data", "ml", "reproducibility"],
+        }
+    elif is_systems_repo:
+        domain_step = {
+            "title": f"Automate a reliable delivery workflow for {repo_name}",
+            "reason": "Systems or DevOps signals were detected. Establish a repeatable environment and delivery path with clear logs and recovery steps.",
+            "tag": "devops",
+            "tags": ["project", "devops", "automation", "reliability"],
+        }
+    elif has_backend:
+        domain_step = {
+            "title": f"Define a production-ready API contract for {repo_name}",
+            "reason": "Backend signals were detected. Start by making one core API flow explicit through validation, predictable errors, and usable documentation.",
+            "tag": "api-design",
+            "tags": ["project", "backend", "api", "documentation"],
+        }
+    elif has_frontend_lang or has_frontend_framework:
+        domain_step = {
+            "title": f"Create a reusable, accessible feature flow in {repo_name}",
+            "reason": "Frontend signals were detected. Strengthen the project around one complete user flow with reusable components and accessible states.",
+            "tag": "frontend",
+            "tags": ["project", "frontend", "ui", "accessibility"],
+        }
+
+    if domain_step:
+        domain_step["title"] = f"{domain_step['title']} ({emphasis})"
+        domain_step["reason"] = f"{domain_step['reason']} This student's path emphasizes {emphasis}."
+        steps.append({
+            **domain_step,
+            "evidence": [repo_name],
+            "type": "Project",
+        })
+
     if has_frontend_lang and not has_frontend_framework:
         steps.append(
             {
@@ -1153,7 +1241,9 @@ def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[
         steps[last_index]["estimated_xp"] = steps[last_index]["reward_xp"]
         steps[last_index]["difficulty"] = progression[min(start_index + last_index, len(progression) - 1)]
 
-    return _stable_rotate(steps[:5], personalization_key, f"project-learning-path:{repo_name}")
+    # Keep the repository-domain milestone first so the path teaches the
+    # actual product context before the shared quality and delivery work.
+    return steps[:5]
 
 
 def _normalize_steps(payload: dict, max_steps: int = 8, enforce_contract: bool = True) -> list[dict]:
