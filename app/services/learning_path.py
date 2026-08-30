@@ -927,7 +927,11 @@ def _rule_based_learning_path(repos: list[dict], personalization_key: str = "") 
     return _normalize_steps({"steps": steps}, max_steps=8, enforce_contract=False)
 
 
-def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[dict]:
+def _rule_based_project_path(
+    repo: dict,
+    personalization_key: str = "",
+    practice_dimensions: list[dict] | None = None,
+) -> list[dict]:
     tokens = _repo_tokens(repo)
     langs = []
     if isinstance(repo.get("languages"), list):
@@ -1089,7 +1093,12 @@ def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[
 
     # Give every repository a product-specific milestone instead of starting
     # every path with the same database/testing/deployment checklist.
-    variant_seed = f"{personalization_key}:{repo_name}"
+    weakest_dimension = min(
+        practice_dimensions or [],
+        key=lambda item: int(item.get("confidence") or 0),
+        default={},
+    )
+    variant_seed = f"{personalization_key}:{repo_name}:{weakest_dimension.get('label') or ''}"
     variant = int.from_bytes(hashlib.sha256(variant_seed.encode("utf-8")).digest()[:2], "big") % 3
     emphasis = ["implementation", "quality and edge cases", "portfolio-ready delivery"][variant]
     domain_step: dict | None = None
@@ -1208,6 +1217,19 @@ def _rule_based_project_path(repo: dict, personalization_key: str = "") -> list[
         steps[last_index]["estimated_xp"] = steps[last_index]["reward_xp"]
         steps[last_index]["difficulty"] = progression[min(start_index + last_index, len(progression) - 1)]
 
+    # Use a stable account-specific ordering for the non-domain milestones.
+    # This makes two students with similar repositories follow different,
+    # explainable progressions instead of the same fixed checklist.
+    if len(steps) > 2:
+        anchor_steps = steps[:1] if domain_step else []
+        remaining_steps = steps[1:] if domain_step else steps
+        remaining_steps = sorted(
+            remaining_steps,
+            key=lambda step: hashlib.sha256(
+                f"{personalization_key}:{repo_name}:{step.get('tag') or step.get('title') or ''}".encode("utf-8")
+            ).hexdigest(),
+        )
+        steps = anchor_steps + remaining_steps
     return steps[:5]
 
 
