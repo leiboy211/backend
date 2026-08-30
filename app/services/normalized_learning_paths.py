@@ -54,7 +54,15 @@ def sync_project_learning_paths(
         for index, step in enumerate(stages):
             stage = existing_stages.get(index)
             if stage is None:
-                stage = LearningPathStage(learning_path_id=path.id, stage_index=index)
+                # SQLAlchemy flushes new rows immediately below so the stage
+                # id is available for proof updates. Required fields must be
+                # populated before that flush.
+                stage = LearningPathStage(
+                    learning_path_id=path.id,
+                    stage_index=index,
+                    title=str(step.get("title") or f"Stage {index + 1}")[:255],
+                    description=str(step.get("description") or step.get("reason") or "Learning stage"),
+                )
                 db.add(stage)
                 db.flush()
             stage.title = str(step.get("title") or f"Stage {index + 1}")[:255]
@@ -89,4 +97,3 @@ def sync_project_learning_paths(
         for index, stale in existing_stages.items():
             if index >= len(stages):
                 db.delete(stale)
-
