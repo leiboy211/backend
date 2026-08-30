@@ -468,6 +468,12 @@ def infer_project_learning_paths(
         repo_name = str(project.get("repo_name") or "").strip()
         fallback_steps = (fallback_by_repo.get(repo_name) or {}).get("steps") or []
         project_steps = list(project.get("steps") or [])
+        # The fallback is the canonical curriculum structure. Let the LLM
+        # enrich the overall response, but never replace these repo/student-
+        # specific stages with a generic checklist.
+        if fallback_steps:
+            project["steps"] = fallback_steps[:5]
+            continue
         if fallback_steps and project_steps:
             anchor = fallback_steps[0]
             anchor_tag = str(anchor.get("tag") or "").strip().lower()
