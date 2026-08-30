@@ -3793,9 +3793,7 @@ def get_project_learning_paths(
         repo = next((item for item in summaries if item.get("name") == repo_name), None)
         repo_signals = build_signal_set([repo] if repo else [], include_repo_identity=False)
         repo_signals.add(f"personalization:{username}")
-        # Bump this when the project-path generator changes so existing
-        # cached paths receive the new repository-specific milestones.
-        repo_signals.add("project-learning-path-schema:v3-student-variation")
+        repo_signals.add("project-learning-path-schema:v4-full-domain-progression")
         baseline_key = _project_baseline_key(project_baseline, repo_name)
         baseline_entry = project_baseline.get(baseline_key) or []
         baseline_signals_list: list[str] = []
