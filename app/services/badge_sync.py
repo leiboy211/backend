@@ -53,6 +53,10 @@ def upsert_badges(
 
     for badge in generated_badges:
         label = str(badge["label"])
+        # Do not insert the same achievement twice when model/rule output
+        # contains duplicate labels during one recompute.
+        if label in seen_labels:
+            continue
         seen_labels.add(label)
         existing = existing_badges.get(label)
         if existing:
@@ -66,17 +70,17 @@ def upsert_badges(
             if clear_claimed_when_unachieved and not existing.achieved:
                 existing.claimed = False
         else:
-            db.add(
-                Badge(
-                    user_id=user_id,
-                    label=label,
-                    description=badge["description"],
-                    criteria=badge["criteria"],
-                    rarity=badge["rarity"],
-                    achieved=badge["achieved"],
-                    claimed=badge.get("claimed", False),
-                )
+            new_badge = Badge(
+                user_id=user_id,
+                label=label,
+                description=badge["description"],
+                criteria=badge["criteria"],
+                rarity=badge["rarity"],
+                achieved=badge["achieved"],
+                claimed=badge.get("claimed", False),
             )
+            db.add(new_badge)
+            existing_badges[label] = new_badge
 
     for label, stale in existing_badges.items():
         if label not in seen_labels:
