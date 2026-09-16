@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     database_url: str
     database_sslmode: str | None = None
     database_statement_timeout_ms: int = 60000
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    database_pool_timeout: int = 30
+    database_pool_recycle: int = 300
     jwt_secret: str
     jwt_issuer: str = "devpath"
 

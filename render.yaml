@@ -15,6 +15,14 @@ services:
         sync: false
       - key: DATABASE_SSLMODE
         value: require
+      - key: DATABASE_POOL_SIZE
+        value: "5"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "10"
+      - key: DATABASE_POOL_TIMEOUT
+        value: "30"
+      - key: DATABASE_POOL_RECYCLE
+        value: "300"
       - key: JWT_ISSUER
         value: devpath
       - key: JWT_SECRET

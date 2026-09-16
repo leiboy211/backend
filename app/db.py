@@ -16,12 +16,22 @@ if is_postgres:
 if is_postgres and settings.database_statement_timeout_ms:
     connect_args["options"] = f"-c statement_timeout={settings.database_statement_timeout_ms}"
 
-engine = create_engine(
-    database_url,
-    pool_pre_ping=True,
-    connect_args=connect_args,
-    hide_parameters=True,
-)
+engine_kwargs = {
+    "pool_pre_ping": True,
+    "connect_args": connect_args,
+    "hide_parameters": True,
+}
+if is_postgres:
+    engine_kwargs.update(
+        {
+            "pool_size": settings.database_pool_size,
+            "max_overflow": settings.database_max_overflow,
+            "pool_timeout": settings.database_pool_timeout,
+            "pool_recycle": settings.database_pool_recycle,
+        }
+    )
+
+engine = create_engine(database_url, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
