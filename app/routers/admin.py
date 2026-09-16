@@ -478,12 +478,21 @@ def get_student_details(
         ActivityLog.user_id == student.id,
         ActivityLog.event.in_(["learning_path_view", "project_learning_path_view"]),
     ).count()
+    career_rows = (
+        db.query(CareerSuggestion)
+        .filter(CareerSuggestion.user_id == student.id)
+        .order_by(CareerSuggestion.confidence.desc(), CareerSuggestion.title.asc())
+        .all()
+    )
+    career_interest = (student.career_interest or "").strip()
+    if not career_interest and career_rows:
+        career_interest = str(career_rows[0].title or "").strip()
     profile_strength = 0
     if (student.display_name or "").strip():
         profile_strength += 20
     if (student.bio or "").strip():
         profile_strength += 20
-    if (student.target_role or "").strip():
+    if career_interest:
         profile_strength += 20
     if repos:
         profile_strength += 20
@@ -555,7 +564,7 @@ def get_student_details(
         profile=AdminStudentDetailProfileOut(
             bio=(portfolio_settings.bio if portfolio_settings and portfolio_settings.bio else student.bio),
             student_id=str(social_links.get("student_id") or student.student_id or "") or None,
-            career_interest=student.career_interest,
+            career_interest=career_interest or None,
             preferred_learning_style=student.preferred_learning_style,
             target_role=student.target_role,
             target_certifications=[str(item) for item in (student.target_certifications or [])],
@@ -611,7 +620,7 @@ def get_student_details(
                 "confidence": int(row.confidence or 0),
                 "reasoning": row.reasoning,
             }
-            for row in db.query(CareerSuggestion).filter(CareerSuggestion.user_id == student.id).all()
+            for row in career_rows
         ],
         recent_recommendations=[
             AdminStudentRecommendationActionOut(
