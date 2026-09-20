@@ -218,6 +218,26 @@ def fetch_public_repos(username: str, max_pages: int | None = None) -> list[dict
     return repos
 
 
+def dedupe_repo_summaries(summaries: list[dict]) -> list[dict]:
+    deduped: dict[str, dict] = {}
+    for summary in summaries:
+        repo_name = str(summary.get("name") or "").strip()
+        if not repo_name:
+            continue
+        key = repo_name.lower()
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = summary
+            continue
+        existing_commits = int(existing.get("commit_count") or 0)
+        next_commits = int(summary.get("commit_count") or 0)
+        existing_stars = int(existing.get("stars") or 0)
+        next_stars = int(summary.get("stars") or 0)
+        if (next_commits, next_stars) > (existing_commits, existing_stars):
+            deduped[key] = summary
+    return list(deduped.values())
+
+
 def fetch_repo_commit_count(full_name: str, username: str, token: str | None = None, max_pages: int = 5) -> int:
     if not full_name:
         return 0

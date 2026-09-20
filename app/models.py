@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, JSON, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, JSON, UniqueConstraint, Index, func
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -49,6 +49,9 @@ class Repo(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(200), nullable=False)
+    __table_args__ = (
+        Index("ix_repos_user_name_lower_unique", "user_id", func.lower(name), unique=True),
+    )
     description = Column(Text, nullable=True)
     language = Column(String(64), nullable=True)
     languages = Column(JSON, default=list)

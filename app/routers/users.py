@@ -82,6 +82,7 @@ from app.schemas import (
 
 
 from app.services.github import (
+    dedupe_repo_summaries,
     fetch_commit_streak_days,
     fetch_repos,
     fetch_repo_language_bytes,
@@ -1447,6 +1448,8 @@ def recompute_insights(
                     language_bytes=language_bytes,
                 )
             )
+
+        summaries = dedupe_repo_summaries(summaries)
 
         db.query(Repo).filter(Repo.user_id == current_user.id).delete(synchronize_session=False)
         for repo in summaries:

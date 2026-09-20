@@ -17,6 +17,7 @@ from app.services.github import (
     fetch_github_user,
     fetch_commit_streak_days,
     fetch_repos,
+    dedupe_repo_summaries,
     summarize_repo,
 )
 from app.services.gamification import compute_xp_and_badges
@@ -166,6 +167,8 @@ def github_callback(request: Request, code: str = Query(...), db: Session = Depe
                 language_bytes=language_bytes,
             )
         )
+
+    summaries = dedupe_repo_summaries(summaries)
 
     db.query(Repo).filter(Repo.user_id == user.id).delete(synchronize_session=False)
     for repo in summaries:

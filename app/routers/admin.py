@@ -388,12 +388,14 @@ def list_students(
     summaries: list[AdminStudentSummary] = []
     now = _now_utc()
     for user in users:
-        repo_count = db.query(Repo).filter(Repo.user_id == user.id).count()
+        repos = db.query(Repo).filter(Repo.user_id == user.id).all()
+        unique_repos = {str(repo.name or "").strip().lower(): repo for repo in repos if str(repo.name or "").strip()}
+        repo_count = len(unique_repos)
         badges_claimed = db.query(Badge).filter(
             Badge.user_id == user.id, Badge.claimed.is_(True)
         ).count()
         total_xp = 0
-        for repo in db.query(Repo).filter(Repo.user_id == user.id).all():
+        for repo in unique_repos.values():
             total_xp += int(repo.commit_count or 0) * 2
             total_xp += 50
             total_xp += int(repo.stars or 0)
