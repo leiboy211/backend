@@ -76,6 +76,11 @@ def _registration_complete(user: User) -> bool:
     return all(str(getattr(user, field, "") or "").strip() for field in _REGISTRATION_FIELDS)
 
 
+def _frontend_auth_error_redirect(error_code: str) -> RedirectResponse:
+    redirect_url = f"{settings.frontend_url}/?{urlencode({'auth_error': error_code})}"
+    return RedirectResponse(url=redirect_url, status_code=302)
+
+
 @router.get("/github/login")
 def github_login():
     url = "https://github.com/login/oauth/authorize?" + urlencode(
@@ -89,7 +94,15 @@ def github_login():
 
 
 @router.get("/github/callback")
-def github_callback(request: Request, code: str = Query(...), db: Session = Depends(get_db)):
+def github_callback(
+    request: Request,
+    code: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    if error or not code:
+        return _frontend_auth_error_redirect("github_authorization_cancelled")
+
     ensure_schema_initialized(force=True)
     try:
         token = exchange_code_for_token(
@@ -100,14 +113,12 @@ def github_callback(request: Request, code: str = Query(...), db: Session = Depe
         )
     except Exception:
         logger.exception("GitHub OAuth token exchange failed")
-        redirect_url = f"{settings.frontend_url}/?{urlencode({'auth_error': 'github_oauth_failed'})}"
-        return RedirectResponse(url=redirect_url, status_code=302)
+        return _frontend_auth_error_redirect("github_oauth_failed")
     try:
         gh_user = fetch_github_user(token)
     except Exception:
         logger.exception("GitHub profile fetch failed")
-        redirect_url = f"{settings.frontend_url}/?{urlencode({'auth_error': 'github_profile_fetch_failed'})}"
-        return RedirectResponse(url=redirect_url, status_code=302)
+        return _frontend_auth_error_redirect("github_profile_fetch_failed")
 
     github_id = str(gh_user["id"])
     username = gh_user["login"]
