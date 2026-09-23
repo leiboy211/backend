@@ -1312,7 +1312,13 @@ def update_settings(
         if "year_level" in social_links_update:
             current_user.year_level = str(social_links_update.get("year_level") or "").strip() or None
 
-    for field, value in updates.items():
+    if payload.display_name is not None:
+        cleaned_display_name = payload.display_name.strip()
+        if cleaned_display_name:
+            current_user.display_name = cleaned_display_name
+
+    settings_fields = {k: v for k, v in updates.items() if k != "display_name"}
+    for field, value in settings_fields.items():
         setattr(settings, field, value)
 
     db.add(ActivityLog(user_id=current_user.id, event="profile_update"))

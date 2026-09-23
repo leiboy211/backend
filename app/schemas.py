@@ -109,6 +109,7 @@ class PortfolioSettingsIn(BaseModel):
     bio: str | None = None
     cover_image: str | None = None
     is_public: bool | None = None
+    display_name: str | None = None
 
 
 class PortfolioResponse(BaseModel):
