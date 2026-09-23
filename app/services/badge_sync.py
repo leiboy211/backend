@@ -53,8 +53,9 @@ def upsert_badges(
 
     for badge in generated_badges:
         label = str(badge["label"])
-        # Do not insert the same achievement twice when model/rule output
-        # contains duplicate labels during one recompute.
+        # Model/rule outputs can contain the same badge more than once in a
+        # single recompute. Keep the first definition so one run cannot add
+        # duplicate rows for the same student and label.
         if label in seen_labels:
             continue
         seen_labels.add(label)
@@ -80,6 +81,8 @@ def upsert_badges(
                 claimed=badge.get("claimed", False),
             )
             db.add(new_badge)
+            # Keep the in-memory map in sync so a later duplicate label in
+            # this same generated list cannot create another pending row.
             existing_badges[label] = new_badge
 
     for label, stale in existing_badges.items():

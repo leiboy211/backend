@@ -469,13 +469,21 @@ def infer_learning_path(
             logger.warning("FLAN-T5 learning-path output was incomplete, using rule-based fallback.")
             steps = fallback_steps
 
-    if steps is not fallback_steps and llm_refiner.is_enabled():
+    if llm_refiner.is_enabled():
         try:
-            refined_steps = llm_refiner.refine_learning_steps(steps, repos)
+            if steps is fallback_steps:
+                refined_steps = llm_refiner.generate_learning_path_steps(
+                    repos=repos,
+                    practice_dimensions=practice_dimensions,
+                    fallback_steps=fallback_steps,
+                    max_steps=8,
+                )
+            else:
+                refined_steps = llm_refiner.refine_learning_steps(steps, repos)
             if _learning_steps_are_usable(refined_steps):
                 steps = refined_steps
         except Exception as exc:
-            logger.warning("LLM enhancer failed for learning path, keeping FLAN-T5 output: %s", exc)
+            logger.warning("LLM enhancer failed for learning path, keeping previous output: %s", exc)
 
     steps = _anchor_steps_to_repos(steps, repos)
     steps = _prioritize_steps_by_focus(steps, practice_dimensions)
@@ -518,7 +526,7 @@ def infer_project_learning_paths(
             logger.warning("FLAN-T5 project learning-path output was incomplete, using rule-based fallback projects.")
             projects = fallback_projects
 
-    if projects is not fallback_projects and llm_refiner.is_enabled():
+    if llm_refiner.is_enabled():
         try:
             refined_projects = llm_refiner.generate_project_learning_paths(
                 repos=repos,
@@ -530,7 +538,7 @@ def infer_project_learning_paths(
             if _project_paths_are_usable(refined_projects, repos):
                 projects = refined_projects
         except Exception as exc:
-            logger.warning("LLM enhancer failed for project learning paths, keeping FLAN-T5 output: %s", exc)
+            logger.warning("LLM enhancer failed for project learning paths, keeping previous output: %s", exc)
 
     # Keep a repo-specific safety net and remove repeated milestones returned by
     # the model/refiner without replacing valid generated stages wholesale.

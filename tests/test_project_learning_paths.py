@@ -203,3 +203,88 @@ def test_infer_project_learning_paths_falls_back_when_flan_fails(monkeypatch):
 
     assert result[0]["repo_name"] == "demo-repo"
     assert len(result[0]["steps"]) >= 3
+
+
+def test_infer_learning_path_uses_llm_when_flan_fails(monkeypatch):
+    captured = {}
+
+    def fake_flan_fail(*args, **kwargs):
+        raise RuntimeError("flan timeout")
+
+    def fake_generate_steps(*args, **kwargs):
+        captured["called"] = True
+        return [
+            {
+                "title": "LLM fallback rescue plan",
+                "description": "Rescue plan tailored to repo.",
+                "reason": "Tailored to repo.",
+                "evidence": ["demo-repo"],
+            },
+            {
+                "title": "LLM fallback rescue docs",
+                "description": "Rescue docs tailored to repo.",
+                "reason": "Tailored to repo.",
+                "evidence": ["demo-repo"],
+            },
+            {
+                "title": "LLM fallback rescue tests",
+                "description": "Rescue tests tailored to repo.",
+                "reason": "Tailored to repo.",
+                "evidence": ["demo-repo"],
+            },
+        ]
+
+    monkeypatch.setattr(inference.flan_t5, "infer_learning_path", fake_flan_fail)
+    monkeypatch.setattr(inference.llm_refiner, "is_enabled", lambda: True)
+    monkeypatch.setattr(inference.llm_refiner, "generate_learning_path_steps", fake_generate_steps)
+
+    result = inference.infer_learning_path([{"name": "demo-repo", "language": "Python"}])
+
+    assert captured.get("called") is True
+    assert result[0]["title"] == "LLM fallback rescue plan"
+
+
+def test_infer_project_learning_paths_uses_llm_when_flan_fails(monkeypatch):
+    captured = {}
+
+    def fake_flan_fail(*args, **kwargs):
+        raise RuntimeError("flan timeout")
+
+    def fake_generate_projects(*args, **kwargs):
+        captured["called"] = True
+        return [
+            {
+                "repo_name": "demo-repo",
+                "steps": [
+                    {
+                        "title": "LLM project rescue stage 1",
+                        "description": "Stage 1.",
+                        "reason": "Stage 1 reason.",
+                        "evidence": ["demo-repo"],
+                    },
+                    {
+                        "title": "LLM project rescue stage 2",
+                        "description": "Stage 2.",
+                        "reason": "Stage 2 reason.",
+                        "evidence": ["demo-repo"],
+                    },
+                    {
+                        "title": "LLM project rescue stage 3",
+                        "description": "Stage 3.",
+                        "reason": "Stage 3 reason.",
+                        "evidence": ["demo-repo"],
+                    },
+                ],
+            }
+        ]
+
+    monkeypatch.setattr(inference.flan_t5, "infer_project_learning_paths", fake_flan_fail)
+    monkeypatch.setattr(inference.llm_refiner, "is_enabled", lambda: True)
+    monkeypatch.setattr(inference.llm_refiner, "generate_project_learning_paths", fake_generate_projects)
+
+    result = inference.infer_project_learning_paths([{"name": "demo-repo", "language": "Python"}])
+
+    assert captured.get("called") is True
+    titles = [s["title"] for s in result[0]["steps"]]
+    assert "LLM project rescue stage 1" in titles
+

@@ -43,6 +43,8 @@ services:
         sync: false
       - key: USE_LLM_REFINER
         value: "true"
+      - key: LLM_REFINER_API_KEY
+        sync: false
       - key: FLAN_T5_MODEL
         value: Leiboy21/Google_Flan_T5_Base
     buildCommand: pip install -r requirements.txt

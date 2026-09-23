@@ -439,6 +439,8 @@ def generate_learning_path_steps(
         "- Use the schema {\"steps\":[...]}.\n"
         f"- Return between {min(5, max_steps)} and {max_steps} steps.\n"
         "- Keep the learning path practical, repository-specific, and outcome-based.\n"
+        "- Treat practice dimensions as FLAN-T5 score signals: prioritize lower-confidence areas and explain how stronger areas support the next step.\n"
+        "- Avoid near-duplicate steps. Vary titles, tags, and progression logic across the path instead of repeating the same testing/deployment checklist.\n"
         "- Every step must include: title, description, reason, type, difficulty, tags, evidence, ai_explanation, progression_logic.\n"
         "- Allowed type values: Project, Skill, Certification, Course.\n"
         "- Allowed difficulty values: Beginner, Intermediate, Advanced.\n"
@@ -511,6 +513,8 @@ def generate_project_learning_paths(
         '- Use the schema {"projects":[{"repo_name":"...","steps":[...]}]}.\n'
         f"- Return at most {max_projects} projects and at most {max_steps_per_project} steps per project.\n"
         "- Keep each project's steps tightly scoped to that repository.\n"
+        "- Treat practice dimensions as FLAN-T5 score signals: lower-confidence areas should influence stage priority, but repo evidence decides the actual task.\n"
+        "- Avoid similar-looking stages across repositories. If repos share technologies, vary the milestone angle using workflow, quality, data, UX, security, deployment, or documentation evidence.\n"
         "- Every step must include: title, description, reason, type, difficulty, tags, evidence, ai_explanation, progression_logic.\n"
         "- Allowed type values: Project, Skill, Certification, Course.\n"
         "- Allowed difficulty values: Beginner, Intermediate, Advanced.\n"
