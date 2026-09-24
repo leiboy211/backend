@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +38,16 @@ class Settings(BaseSettings):
     hf_endpoint_url: str = "https://router.huggingface.co/hf-inference"
     flan_t5_model: str | None = None
     model_alias: str | None = None
+
+    @field_validator("flan_t5_model", "hf_token", "hf_endpoint_url", mode="before")
+    @classmethod
+    def clean_env_strings(cls, v: str | None) -> str | None:
+        if not v or not isinstance(v, str):
+            return v
+        cleaned = v.strip().strip('"').strip("'")
+        if "=" in cleaned:
+            cleaned = cleaned.split("=", 1)[1].strip().strip('"').strip("'")
+        return cleaned
     use_llm_refiner: bool | None = None
     llm_refiner_provider: str = "groq"
     llm_refiner_api_key: str | None = None

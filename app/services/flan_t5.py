@@ -107,16 +107,26 @@ def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 51
             raise RuntimeError("Hugging Face Space returned no generated text.")
         return str(result).strip()
 
-    base_url = (settings.hf_endpoint_url or "").rstrip("/")
+    def _clean(val: str | None) -> str:
+        if not val:
+            return ""
+        s = str(val).strip().strip('"').strip("'")
+        if "=" in s:
+            s = s.split("=", 1)[1].strip().strip('"').strip("'")
+        return s
+
+    clean_model_name = _clean(model_name)
+    hf_token = _clean(settings.hf_token)
+    base_url = _clean(settings.hf_endpoint_url).rstrip("/")
     if not base_url:
         raise RuntimeError("Hugging Face inference endpoint is not configured.")
 
-    endpoint = base_url if base_url.endswith(model_name) else f"{base_url}/{model_name}"
+    endpoint = base_url if base_url.endswith(clean_model_name) else f"{base_url}/{clean_model_name}"
     try:
         response = requests.post(
             endpoint,
             headers={
-                "Authorization": f"Bearer {settings.hf_token}",
+                "Authorization": f"Bearer {hf_token}",
                 "Content-Type": "application/json",
             },
             json={
