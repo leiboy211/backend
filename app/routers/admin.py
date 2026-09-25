@@ -76,7 +76,7 @@ ADOPTED_RECOMMENDATION_ACTIONS = {"clicked", "accepted", "completed", "started"}
 ONLINE_WINDOW = dt.timedelta(seconds=45)
 
 
-async def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
+def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
     clean_name = str(repo_name or "").strip()
     clean_lower = clean_name.lower()
     for key in project_baseline.keys():
@@ -88,11 +88,11 @@ EVALUATION_METRICS_PATH = Path(__file__).resolve().parents[2] / "evaluation" / "
 TEST_PREDICTIONS_PATH = Path(__file__).resolve().parents[2] / "evaluation" / "test_predictions.csv"
 
 
-async def _now_utc() -> dt.datetime:
+def _now_utc() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-async def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
+def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
     thread: list[dict] = []
     latest_admin_comment_at: str | None = None
     latest_student_reply_at: str | None = None
@@ -118,7 +118,7 @@ async def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[d
     return thread, latest_admin_comment_at, latest_student_reply_at
 
 
-async def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
+def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
     clean_ids = [int(item) for item in certificate_ids if int(item) > 0]
     if not clean_ids:
         return {}
@@ -148,7 +148,7 @@ async def _certificate_thread_map(db: Session, user_id: int, certificate_ids: li
     return result
 
 
-async def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
+def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
     thread_meta = thread_meta or {}
     return {
         "id": row.id,
@@ -175,7 +175,7 @@ async def _certificate_payload(row: CertificateRecord, username: str | None, thr
     }
 
 
-async def _as_utc(value: dt.datetime | None) -> dt.datetime | None:
+def _as_utc(value: dt.datetime | None) -> dt.datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
@@ -183,14 +183,14 @@ async def _as_utc(value: dt.datetime | None) -> dt.datetime | None:
     return value.astimezone(dt.timezone.utc)
 
 
-async def _elapsed_since(value: dt.datetime | None, now: dt.datetime) -> dt.timedelta | None:
+def _elapsed_since(value: dt.datetime | None, now: dt.datetime) -> dt.timedelta | None:
     timestamp = _as_utc(value)
     if timestamp is None:
         return None
     return now - timestamp
 
 
-async def _fcc_progress_payload(row: FccModuleProgress) -> dict:
+def _fcc_progress_payload(row: FccModuleProgress) -> dict:
     return {
         "id": row.id,
         "user_id": row.user_id,
@@ -206,7 +206,7 @@ async def _fcc_progress_payload(row: FccModuleProgress) -> dict:
     }
 
 
-async def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
+def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
     total_modules = len(rows)
     modules_started = sum(1 for row in rows if (row.status or "") in {"in_progress", "done"} or int(row.progress_percent or 0) > 0)
     modules_completed = sum(1 for row in rows if (row.status or "") == "done" or int(row.progress_percent or 0) >= 100)
@@ -222,7 +222,7 @@ async def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
     }
 
 
-async def _student_users_query(db: Session):
+def _student_users_query(db: Session):
     # Backward-compatible student filter:
     # include legacy rows where role can be null/empty, and explicit "student" rows.
     return db.query(User).filter(
@@ -234,7 +234,7 @@ async def _student_users_query(db: Session):
     )
 
 
-async def _latest_logout_map(db: Session, user_ids: list[int]) -> dict[int, dt.datetime]:
+def _latest_logout_map(db: Session, user_ids: list[int]) -> dict[int, dt.datetime]:
     if not user_ids:
         return {}
     rows = (
@@ -246,7 +246,7 @@ async def _latest_logout_map(db: Session, user_ids: list[int]) -> dict[int, dt.d
     return {int(user_id): logged_out_at for user_id, logged_out_at in rows if user_id and logged_out_at}
 
 
-async def _is_student_online(last_seen: dt.datetime | None, last_logout_at: dt.datetime | None, now: dt.datetime) -> bool:
+def _is_student_online(last_seen: dt.datetime | None, last_logout_at: dt.datetime | None, now: dt.datetime) -> bool:
     elapsed = _elapsed_since(last_seen, now)
     if elapsed is None or elapsed > ONLINE_WINDOW:
         return False
@@ -257,7 +257,7 @@ async def _is_student_online(last_seen: dt.datetime | None, last_logout_at: dt.d
     return True
 
 
-async def _load_ai_evaluation_metrics() -> dict:
+def _load_ai_evaluation_metrics() -> dict:
     if not EVALUATION_METRICS_PATH.exists():
         return {}
     try:
@@ -299,7 +299,7 @@ async def _load_ai_evaluation_metrics() -> dict:
     }
 
 
-async def _load_ai_prediction_samples(limit: int = 12) -> dict:
+def _load_ai_prediction_samples(limit: int = 12) -> dict:
     if not TEST_PREDICTIONS_PATH.exists():
         return {"total_rows": 0, "sample_count": 0, "samples": []}
     try:

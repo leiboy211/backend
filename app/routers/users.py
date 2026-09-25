@@ -560,7 +560,7 @@ async def _is_project_stage_claim_complete(value: object) -> bool:
         return False
 
 
-async def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
+def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
     clean_name = str(repo_name or "").strip()
     clean_lower = clean_name.lower()
     for key in project_baseline.keys():
@@ -569,7 +569,7 @@ async def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
     return clean_name
 
 
-async def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
+def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
     thread: list[dict] = []
     latest_admin_comment_at: str | None = None
     latest_student_reply_at: str | None = None
@@ -595,7 +595,7 @@ async def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[d
     return thread, latest_admin_comment_at, latest_student_reply_at
 
 
-async def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
+def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
     clean_ids = [int(item) for item in certificate_ids if int(item) > 0]
     if not clean_ids:
         return {}
@@ -625,7 +625,7 @@ async def _certificate_thread_map(db: Session, user_id: int, certificate_ids: li
     return result
 
 
-async def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
+def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
     thread_meta = thread_meta or {}
     return {
         "id": row.id,
@@ -653,12 +653,12 @@ async def _certificate_payload(row: CertificateRecord, username: str | None, thr
 }
 
 
-async def _normalize_suggestion_track_id(value: str | None) -> str | None:
+def _normalize_suggestion_track_id(value: str | None) -> str | None:
     clean = str(value or "").strip()
     return clean or None
 
 
-async def _normalize_suggestion_module_url(value: str | None) -> str | None:
+def _normalize_suggestion_module_url(value: str | None) -> str | None:
     clean = str(value or "").strip()
     return clean or None
 
@@ -1017,7 +1017,7 @@ async def _sync_badges(db: Session, user_id: int, generated_badges: list[dict]) 
     upsert_badges(db, user_id, generated_badges, preserve_achieved=True, clear_claimed_when_unachieved=False)
 
 
-async def _repo_summaries_for_inference(repos: list[Repo]) -> list[dict]:
+def _repo_summaries_for_inference(repos: list[Repo]) -> list[dict]:
     return [
         {
             "name": repo.name,
@@ -1077,13 +1077,13 @@ async def _compute_portfolio_completeness(
     return min(100, score)
 
 
-async def _learning_path_signature(steps: list[dict]) -> str:
+def _learning_path_signature(steps: list[dict]) -> str:
     titles = [str(step.get("title") or "").strip().lower() for step in steps if step.get("title")]
     payload = "|".join(titles)
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
-async def _issue_learning_path_certificate(db: Session, user: User, steps: list[dict]) -> bool:
+def _issue_learning_path_certificate(db: Session, user: User, steps: list[dict]) -> bool:
     signature = _learning_path_signature(steps)
     existing = (
         db.query(CertificateRecord)
@@ -1188,22 +1188,22 @@ async def get_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    _repair_reintroduced_badge_claims(db, user.id)
+    await _repair_reintroduced_badge_claims(db, user.id)
 
     repos = db.query(Repo).filter(Repo.user_id == user.id).all()
-    streak_days = _safe_fetch_commit_streak_days(user.username, token=user.github_token)
-    badge_context = _build_badge_context(db, user, streak_days=streak_days)
+    streak_days = await _safe_fetch_commit_streak_days(user.username, token=user.github_token)
+    badge_context = await _build_badge_context(db, user, streak_days=streak_days)
     gamification = compute_xp_and_badges([repo.__dict__ for repo in repos], context=badge_context)
     practice_rows = db.query(PracticeDimension).filter(PracticeDimension.user_id == user.id).all()
     career_rows = db.query(CareerSuggestion).filter(CareerSuggestion.user_id == user.id).all()
     practice_payload = [{"label": item.label, "confidence": item.confidence, "evidence": item.evidence} for item in practice_rows]
-    skill_domains, focus_domain = _skill_domain_payload(practice_payload)
+    skill_domains, focus_domain = await _skill_domain_payload(practice_payload)
 
     badge_rows = db.query(Badge).filter(Badge.user_id == user.id).all()
-    badge_payloads = [_badge_payload(item) for item in badge_rows]
+    badge_payloads = [await _badge_payload(item) for item in badge_rows]
     if not badge_payloads:
-        badge_payloads = [_generated_badge_payload(item) for item in gamification.badges]
-    bonus_xp = _badge_bonus_xp(badge_rows)
+        badge_payloads = [await _generated_badge_payload(item) for item in gamification.badges]
+    bonus_xp = await _badge_bonus_xp(badge_rows)
     total_xp = gamification.xp + bonus_xp + int(user.bonus_xp or 0)
     level = level_from_xp(total_xp)
     next_level_xp = next_level_xp_for_total(total_xp)
@@ -1218,16 +1218,16 @@ async def get_user(
     )
 
     total_commits = sum(int(repo.commit_count or 0) for repo in repos)
-    weekly_commits = _weekly_commit_rows(db, user.id, fallback_commits=total_commits)
+    weekly_commits = await _weekly_commit_rows(db, user.id, fallback_commits=total_commits)
     weekly_avg = float(sum(int(item.get("commit_count") or 0) for item in weekly_commits) / max(1, len(weekly_commits)))
     portfolio_settings = (
         db.query(PortfolioSettings).filter(PortfolioSettings.user_id == user.id).one_or_none()
     )
-    portfolio_completeness = _compute_portfolio_completeness(user, repos, portfolio_settings)
+    portfolio_completeness = await _compute_portfolio_completeness(user, repos, portfolio_settings)
     frequency = {
         "total_commits": total_commits,
         "repo_count": len(repos),
-        "active_repos_30d": _active_repos_last_30_days(repos),
+        "active_repos_30d": await _active_repos_last_30_days(repos),
         "weekly_commits": weekly_commits,
         "weekly_commit_average": weekly_avg,
         "streak_days": streak_days,
@@ -1325,7 +1325,7 @@ async def update_settings(
     db.commit()
     db.refresh(settings)
 
-    response = get_user(current_user.username, db=db)
+    response = await get_user(current_user.username, db=db)
     return {
         **response,
         "settings": {
@@ -1388,7 +1388,7 @@ async def register(payload: RegistrationIn, db: Session = Depends(get_db), curre
     db.add(ActivityLog(user_id=current_user.id, event="profile_update"))
     db.commit()
     db.refresh(current_user)
-    return get_user(current_user.username, db=db)
+    return await get_user(current_user.username, db=db)
 
 
 @router.post("/user/recompute", response_model=UserResponse)
@@ -1529,7 +1529,7 @@ async def get_portfolio(username: str, db: Session = Depends(get_db)):
     if not settings or not settings.is_public:
         raise HTTPException(status_code=404, detail="Portfolio not public")
 
-    response = get_user(username, db=db)
+    response = await get_user(username, db=db)
     return {
         **response,
         "settings": {
@@ -1562,7 +1562,7 @@ async def get_owner_portfolio(
         db.commit()
         db.refresh(settings)
 
-    response = get_user(current_user.username, db=db)
+    response = await get_user(current_user.username, db=db)
     return {
         **response,
         "settings": {
@@ -1674,7 +1674,7 @@ async def get_me(
     }
 
 
-async def _get_or_create_portfolio_settings(db: Session, user_id: int) -> PortfolioSettings:
+def _get_or_create_portfolio_settings(db: Session, user_id: int) -> PortfolioSettings:
     settings_row = db.query(PortfolioSettings).filter(PortfolioSettings.user_id == user_id).one_or_none()
     if settings_row:
         return settings_row
@@ -1685,7 +1685,7 @@ async def _get_or_create_portfolio_settings(db: Session, user_id: int) -> Portfo
     return settings_row
 
 
-async def _portfolio_signal_labels(repos: list[Repo], limit: int = 5) -> list[str]:
+def _portfolio_signal_labels(repos: list[Repo], limit: int = 5) -> list[str]:
     counts: dict[str, int] = {}
     for repo in repos:
         values = list(repo.languages or [])
@@ -1701,7 +1701,7 @@ async def _portfolio_signal_labels(repos: list[Repo], limit: int = 5) -> list[st
     return [label for label, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]]
 
 
-async def _join_labels(items: list[str]) -> str:
+def _join_labels(items: list[str]) -> str:
     cleaned = [str(item).strip() for item in items if str(item).strip()]
     if not cleaned:
         return ""
@@ -1712,7 +1712,7 @@ async def _join_labels(items: list[str]) -> str:
     return f"{', '.join(cleaned[:-1])}, and {cleaned[-1]}"
 
 
-async def _fallback_portfolio_summary(
+def _fallback_portfolio_summary(
     *,
     user: User,
     repos: list[Repo],
