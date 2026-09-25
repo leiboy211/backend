@@ -35,11 +35,11 @@ class Settings(BaseSettings):
 
     hf_token: str | None = None
     hf_space_url: str | None = None
-    hf_endpoint_url: str = "https://router.huggingface.co/hf-inference"
+    hf_endpoint_url: str = "https://router.huggingface.co/hf-inference/models"
     flan_t5_model: str | None = None
     model_alias: str | None = None
 
-    @field_validator("flan_t5_model", "hf_token", "hf_endpoint_url", mode="before")
+    @field_validator("flan_t5_model", "hf_token", "hf_endpoint_url", "hf_space_url", mode="before")
     @classmethod
     def clean_env_strings(cls, v: str | None) -> str | None:
         if not v or not isinstance(v, str):

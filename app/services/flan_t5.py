@@ -95,11 +95,15 @@ def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 51
         try:
             from gradio_client import Client
 
+            space_target = str(settings.hf_space_url).strip().strip('"').strip("'").rstrip("/")
             client = Client(
-                settings.hf_space_url.rstrip("/"),
+                space_target,
                 hf_token=settings.hf_token or None,
             )
-            result = client.predict(prompt, api_name="/generate")
+            try:
+                result = client.predict(prompt, api_name="/generate")
+            except Exception:
+                result = client.predict(prompt)
         except Exception as exc:
             logger.error("Hugging Face Space inference failed: %s", str(exc)[:240])
             raise RuntimeError("Hugging Face Space inference failed.") from exc
@@ -120,6 +124,8 @@ def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 51
     base_url = _clean(settings.hf_endpoint_url).rstrip("/")
     if not base_url:
         raise RuntimeError("Hugging Face inference endpoint is not configured.")
+    if base_url == "https://router.huggingface.co/hf-inference":
+        base_url = "https://router.huggingface.co/hf-inference/models"
 
     endpoint = base_url if base_url.endswith(clean_model_name) else f"{base_url}/{clean_model_name}"
     try:
@@ -143,7 +149,13 @@ def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 51
         response.raise_for_status()
         payload = response.json()
     except requests.RequestException as exc:
-        logger.error("Hugging Face API inference failed: %s", str(exc)[:240])
+        err_msg = str(exc)[:240]
+        if hasattr(exc, "response") and exc.response is not None:
+            try:
+                err_msg += f" | Details: {exc.response.text[:200]}"
+            except Exception:
+                pass
+        logger.error("Hugging Face API inference failed: %s", err_msg)
         raise RuntimeError("Hugging Face API inference failed.") from exc
 
     if isinstance(payload, list) and payload:
