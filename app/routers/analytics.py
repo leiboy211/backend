@@ -13,7 +13,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/engagement", response_model=EngagementAnalyticsOut)
-def get_engagement_analytics(
+async def get_engagement_analytics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -60,7 +60,7 @@ def get_engagement_analytics(
 
 
 @router.get("/activity-timeline", response_model=list[ActivityTimelineOut])
-def get_activity_timeline(
+async def get_activity_timeline(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

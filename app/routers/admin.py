@@ -76,7 +76,7 @@ ADOPTED_RECOMMENDATION_ACTIONS = {"clicked", "accepted", "completed", "started"}
 ONLINE_WINDOW = dt.timedelta(seconds=45)
 
 
-def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
+async def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
     clean_name = str(repo_name or "").strip()
     clean_lower = clean_name.lower()
     for key in project_baseline.keys():
@@ -88,11 +88,11 @@ EVALUATION_METRICS_PATH = Path(__file__).resolve().parents[2] / "evaluation" / "
 TEST_PREDICTIONS_PATH = Path(__file__).resolve().parents[2] / "evaluation" / "test_predictions.csv"
 
 
-def _now_utc() -> dt.datetime:
+async def _now_utc() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
+async def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
     thread: list[dict] = []
     latest_admin_comment_at: str | None = None
     latest_student_reply_at: str | None = None
@@ -118,7 +118,7 @@ def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], 
     return thread, latest_admin_comment_at, latest_student_reply_at
 
 
-def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
+async def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
     clean_ids = [int(item) for item in certificate_ids if int(item) > 0]
     if not clean_ids:
         return {}
@@ -148,7 +148,7 @@ def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int
     return result
 
 
-def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
+async def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
     thread_meta = thread_meta or {}
     return {
         "id": row.id,
@@ -175,7 +175,7 @@ def _certificate_payload(row: CertificateRecord, username: str | None, thread_me
     }
 
 
-def _as_utc(value: dt.datetime | None) -> dt.datetime | None:
+async def _as_utc(value: dt.datetime | None) -> dt.datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
@@ -183,14 +183,14 @@ def _as_utc(value: dt.datetime | None) -> dt.datetime | None:
     return value.astimezone(dt.timezone.utc)
 
 
-def _elapsed_since(value: dt.datetime | None, now: dt.datetime) -> dt.timedelta | None:
+async def _elapsed_since(value: dt.datetime | None, now: dt.datetime) -> dt.timedelta | None:
     timestamp = _as_utc(value)
     if timestamp is None:
         return None
     return now - timestamp
 
 
-def _fcc_progress_payload(row: FccModuleProgress) -> dict:
+async def _fcc_progress_payload(row: FccModuleProgress) -> dict:
     return {
         "id": row.id,
         "user_id": row.user_id,
@@ -206,7 +206,7 @@ def _fcc_progress_payload(row: FccModuleProgress) -> dict:
     }
 
 
-def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
+async def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
     total_modules = len(rows)
     modules_started = sum(1 for row in rows if (row.status or "") in {"in_progress", "done"} or int(row.progress_percent or 0) > 0)
     modules_completed = sum(1 for row in rows if (row.status or "") == "done" or int(row.progress_percent or 0) >= 100)
@@ -222,7 +222,7 @@ def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
     }
 
 
-def _student_users_query(db: Session):
+async def _student_users_query(db: Session):
     # Backward-compatible student filter:
     # include legacy rows where role can be null/empty, and explicit "student" rows.
     return db.query(User).filter(
@@ -234,7 +234,7 @@ def _student_users_query(db: Session):
     )
 
 
-def _latest_logout_map(db: Session, user_ids: list[int]) -> dict[int, dt.datetime]:
+async def _latest_logout_map(db: Session, user_ids: list[int]) -> dict[int, dt.datetime]:
     if not user_ids:
         return {}
     rows = (
@@ -246,7 +246,7 @@ def _latest_logout_map(db: Session, user_ids: list[int]) -> dict[int, dt.datetim
     return {int(user_id): logged_out_at for user_id, logged_out_at in rows if user_id and logged_out_at}
 
 
-def _is_student_online(last_seen: dt.datetime | None, last_logout_at: dt.datetime | None, now: dt.datetime) -> bool:
+async def _is_student_online(last_seen: dt.datetime | None, last_logout_at: dt.datetime | None, now: dt.datetime) -> bool:
     elapsed = _elapsed_since(last_seen, now)
     if elapsed is None or elapsed > ONLINE_WINDOW:
         return False
@@ -257,7 +257,7 @@ def _is_student_online(last_seen: dt.datetime | None, last_logout_at: dt.datetim
     return True
 
 
-def _load_ai_evaluation_metrics() -> dict:
+async def _load_ai_evaluation_metrics() -> dict:
     if not EVALUATION_METRICS_PATH.exists():
         return {}
     try:
@@ -299,7 +299,7 @@ def _load_ai_evaluation_metrics() -> dict:
     }
 
 
-def _load_ai_prediction_samples(limit: int = 12) -> dict:
+async def _load_ai_prediction_samples(limit: int = 12) -> dict:
     if not TEST_PREDICTIONS_PATH.exists():
         return {"total_rows": 0, "sample_count": 0, "samples": []}
     try:
@@ -328,7 +328,7 @@ def _load_ai_prediction_samples(limit: int = 12) -> dict:
 
 
 @router.delete("/students")
-def delete_all_students(
+async def delete_all_students(
     confirm: str = Body(..., embed=True),
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -379,7 +379,7 @@ def delete_all_students(
 
 
 @router.get("/students", response_model=list[AdminStudentSummary])
-def list_students(
+async def list_students(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):
@@ -425,7 +425,7 @@ def list_students(
 
 
 @router.get("/students/{student_id}/details", response_model=AdminStudentDetailOut)
-def get_student_details(
+async def get_student_details(
     student_id: int,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -692,7 +692,7 @@ def get_student_details(
 
 
 @router.delete("/students/{student_id}")
-def delete_student(
+async def delete_student(
     student_id: int,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -736,7 +736,7 @@ def delete_student(
 
 
 @router.post("/students/verify", response_model=StudentVerifyOut)
-def verify_student(
+async def verify_student(
     payload: StudentVerifyIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -756,7 +756,7 @@ def verify_student(
 
 
 @router.get("/analytics", response_model=AdminAnalyticsOut)
-def get_analytics(
+async def get_analytics(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):
@@ -812,7 +812,7 @@ def get_analytics(
 
 
 @router.get("/analytics/deep", response_model=AdminDeepAnalyticsOut)
-def get_deep_analytics(
+async def get_deep_analytics(
     range_param: str = Query("7d", alias="range", pattern="^(1h|1d|7d|30d)$"),
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -915,7 +915,7 @@ def get_deep_analytics(
 
 
 @router.post("/analytics/reset")
-def reset_analytics(
+async def reset_analytics(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):
@@ -925,7 +925,7 @@ def reset_analytics(
 
 
 @router.get("/evaluation/metrics", response_model=AdminEvaluationMetricsOut)
-def get_evaluation_metrics(
+async def get_evaluation_metrics(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):
@@ -1006,7 +1006,7 @@ def get_evaluation_metrics(
 
 
 @router.get("/evaluation/predictions", response_model=AdminEvaluationPredictionsOut)
-def get_evaluation_predictions(
+async def get_evaluation_predictions(
     limit: int = Query(default=12, ge=1, le=30),
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1015,7 +1015,7 @@ def get_evaluation_predictions(
 
 
 @router.post("/notes", response_model=AdminNoteOut)
-def create_note(
+async def create_note(
     payload: AdminNoteIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1037,7 +1037,7 @@ def create_note(
 
 
 @router.get("/notes/{student_id}", response_model=list[AdminNoteOut])
-def list_notes(
+async def list_notes(
     student_id: int,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1058,7 +1058,7 @@ def list_notes(
 
 
 @router.put("/students/{username}/learning-path/stage-feedback", response_model=AdminStageFeedbackOut)
-def upsert_stage_feedback(
+async def upsert_stage_feedback(
     username: str,
     payload: AdminStageFeedbackIn,
     db: Session = Depends(get_db),
@@ -1190,7 +1190,7 @@ def upsert_stage_feedback(
 
 
 @router.post("/students/{username}/learning-path/stage-feedback/delete", response_model=AdminStageFeedbackOut)
-def delete_stage_feedback(
+async def delete_stage_feedback(
     username: str,
     payload: AdminStageFeedbackDeleteIn,
     db: Session = Depends(get_db),
@@ -1313,7 +1313,7 @@ def delete_stage_feedback(
 
 
 @router.post("/validations", response_model=ProjectValidationOut)
-def create_validation(
+async def create_validation(
     payload: ProjectValidationIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1343,7 +1343,7 @@ def create_validation(
 
 
 @router.get("/validations", response_model=list[ProjectValidationOut])
-def list_all_validations(
+async def list_all_validations(
     status: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1367,7 +1367,7 @@ def list_all_validations(
 
 
 @router.get("/validations/{student_id}", response_model=list[ProjectValidationOut])
-def list_validations(
+async def list_validations(
     student_id: int,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1390,7 +1390,7 @@ def list_validations(
 
 
 @router.post("/portfolio-reviews", response_model=PortfolioReviewOut)
-def create_portfolio_review(
+async def create_portfolio_review(
     payload: PortfolioReviewIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1418,7 +1418,7 @@ def create_portfolio_review(
 
 
 @router.get("/portfolio-reviews/{student_id}", response_model=list[PortfolioReviewOut])
-def list_portfolio_reviews(
+async def list_portfolio_reviews(
     student_id: int,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1443,7 +1443,7 @@ def list_portfolio_reviews(
 
 
 @router.get("/certificates/pending", response_model=list[CertificateOut])
-def list_pending_certificates(
+async def list_pending_certificates(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):
@@ -1465,7 +1465,7 @@ def list_pending_certificates(
 
 
 @router.post("/certificates/review", response_model=CertificateOut)
-def review_certificate(
+async def review_certificate(
     payload: CertificateReviewIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1502,7 +1502,7 @@ def review_certificate(
 
 
 @router.post("/validations/bulk", response_model=list[ProjectValidationOut])
-def create_bulk_validations(
+async def create_bulk_validations(
     payload: ValidationBulkIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1552,7 +1552,7 @@ def create_bulk_validations(
 
 
 @router.post("/certificates/review/bulk", response_model=list[CertificateOut])
-def review_certificates_bulk(
+async def review_certificates_bulk(
     payload: CertificateReviewBulkIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1603,7 +1603,7 @@ def review_certificates_bulk(
 
 
 @router.post("/certificates/comment", response_model=CertificateOut)
-def comment_on_certificate(
+async def comment_on_certificate(
     payload: CertificateCommentIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1635,7 +1635,7 @@ def comment_on_certificate(
 
 
 @router.post("/certificates/comment-delete", response_model=CertificateOut)
-def delete_certificate_comment(
+async def delete_certificate_comment(
     payload: CertificateCommentDeleteIn,
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
@@ -1677,7 +1677,7 @@ def delete_certificate_comment(
 
 
 @router.get("/export/students.csv")
-def export_students_csv(
+async def export_students_csv(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):
@@ -1723,7 +1723,7 @@ def export_students_csv(
 
 
 @router.get("/research/analytics", response_model=ResearchAnalyticsOut)
-def get_research_analytics(
+async def get_research_analytics(
     db: Session = Depends(get_db),
     current_admin: AdminAccount = Depends(get_current_admin),
 ):

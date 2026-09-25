@@ -82,7 +82,7 @@ def _frontend_auth_error_redirect(error_code: str) -> RedirectResponse:
 
 
 @router.get("/github/login")
-def github_login():
+async def github_login():
     url = "https://github.com/login/oauth/authorize?" + urlencode(
         {
             "client_id": settings.github_client_id,
@@ -94,7 +94,7 @@ def github_login():
 
 
 @router.get("/github/callback")
-def github_callback(
+async def github_callback(
     request: Request,
     code: str | None = Query(default=None),
     error: str | None = Query(default=None),
@@ -237,7 +237,7 @@ def github_callback(
 
 
 @router.post("/admin/login", response_model=AdminLoginOut)
-def admin_login(payload: AdminLoginIn, db: Session = Depends(get_db)):
+async def admin_login(payload: AdminLoginIn, db: Session = Depends(get_db)):
     if not payload.username or not payload.password:
         raise HTTPException(status_code=400, detail="Missing credentials")
 
@@ -274,7 +274,7 @@ def admin_login(payload: AdminLoginIn, db: Session = Depends(get_db)):
 
 
 @router.post("/faculty/login", response_model=AdminLoginOut)
-def faculty_login(payload: AdminLoginIn, db: Session = Depends(get_db)):
+async def faculty_login(payload: AdminLoginIn, db: Session = Depends(get_db)):
     if not payload.username or not payload.password:
         raise HTTPException(status_code=400, detail="Missing credentials")
 

@@ -32,7 +32,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/login-activity", response_model=LoginActivityDetailOut)
-def get_login_activity(
+async def get_login_activity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -65,7 +65,7 @@ def get_login_activity(
 
 
 @router.get("/login-trends", response_model=LoginActivityTrendsOut)
-def get_login_trends(
+async def get_login_trends(
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):
@@ -120,7 +120,7 @@ def get_login_trends(
 
 
 @router.get("/login-live", response_model=LoginLiveOut)
-def get_login_live(
+async def get_login_live(
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):

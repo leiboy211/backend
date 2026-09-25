@@ -264,7 +264,7 @@ RULE_MODULES = {
 }
 
 
-def _pick_rule_module(dimension_key: str, username: str, order_index: int = 0) -> dict | None:
+async def _pick_rule_module(dimension_key: str, username: str, order_index: int = 0) -> dict | None:
     options = RULE_MODULES.get(dimension_key) or []
     if not options:
         return None
@@ -315,7 +315,7 @@ WEEKLY_CHALLENGES = [
 ]
 
 
-def _add_bonus_xp(db: Session, user: User, reward_xp: int, reason: str) -> None:
+async def _add_bonus_xp(db: Session, user: User, reward_xp: int, reason: str) -> None:
     reward = max(0, int(reward_xp or 0))
     if reward <= 0:
         return
@@ -335,7 +335,7 @@ def _add_bonus_xp(db: Session, user: User, reward_xp: int, reason: str) -> None:
     db.add(ActivityLog(user_id=user.id, event="bonus_xp_award", meta={"reason": reason, "xp": reward}))
 
 
-def _raise_project_path_difficulty(steps: list[dict], path_level: int) -> list[dict]:
+async def _raise_project_path_difficulty(steps: list[dict], path_level: int) -> list[dict]:
     if not steps:
         return steps
     progression = ["Beginner", "Intermediate", "Advanced"]
@@ -368,7 +368,7 @@ def _raise_project_path_difficulty(steps: list[dict], path_level: int) -> list[d
     return intensified
 
 
-def _daily_quest_completed(db: Session, user_id: int, quest_key: str, start: dt.datetime, end: dt.datetime) -> bool:
+async def _daily_quest_completed(db: Session, user_id: int, quest_key: str, start: dt.datetime, end: dt.datetime) -> bool:
     if quest_key == "daily_login":
         return (
             db.query(ActivityLog)
@@ -408,7 +408,7 @@ def _daily_quest_completed(db: Session, user_id: int, quest_key: str, start: dt.
     return False
 
 
-def _weekly_challenge_completed(db: Session, user_id: int, challenge_key: str, week_start: dt.datetime) -> bool:
+async def _weekly_challenge_completed(db: Session, user_id: int, challenge_key: str, week_start: dt.datetime) -> bool:
     if challenge_key == "weekly_commit_10":
         commits = (
             db.query(EngagementCommit)
@@ -443,7 +443,7 @@ def _weekly_challenge_completed(db: Session, user_id: int, challenge_key: str, w
     return False
 
 
-def _dimension_band(score: int) -> str:
+async def _dimension_band(score: int) -> str:
     if score >= 70:
         return "strong"
     if score >= 40:
@@ -451,7 +451,7 @@ def _dimension_band(score: int) -> str:
     return "gap"
 
 
-def _build_weekly_digest(db: Session, user: User) -> dict:
+async def _build_weekly_digest(db: Session, user: User) -> dict:
     week_start = week_start_for_date(dt.datetime.utcnow())
     commits = (
         db.query(EngagementCommit)
@@ -495,7 +495,7 @@ def _build_weekly_digest(db: Session, user: User) -> dict:
     }
 
 
-def _normalize_fcc_status(value: str | None, progress_percent: int) -> str:
+async def _normalize_fcc_status(value: str | None, progress_percent: int) -> str:
     status = (value or "").strip().lower()
     allowed = {"not_started", "in_progress", "done"}
     if status not in allowed:
@@ -509,7 +509,7 @@ def _normalize_fcc_status(value: str | None, progress_percent: int) -> str:
     return status
 
 
-def _fcc_progress_payload(row: FccModuleProgress) -> dict:
+async def _fcc_progress_payload(row: FccModuleProgress) -> dict:
     return {
         "id": row.id,
         "user_id": row.user_id,
@@ -525,7 +525,7 @@ def _fcc_progress_payload(row: FccModuleProgress) -> dict:
     }
 
 
-def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
+async def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
     total_modules = len(rows)
     modules_started = sum(1 for row in rows if (row.status or "") in {"in_progress", "done"} or int(row.progress_percent or 0) > 0)
     modules_completed = sum(1 for row in rows if (row.status or "") == "done" or int(row.progress_percent or 0) >= 100)
@@ -541,7 +541,7 @@ def _fcc_progress_summary(rows: list[FccModuleProgress]) -> dict:
     }
 
 
-def _normalize_project_stage_status(value: str | None) -> str:
+async def _normalize_project_stage_status(value: str | None) -> str:
     status = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
     if status in {"complete", "completed", "complete_stage"}:
         return "complete_stage"
@@ -553,14 +553,14 @@ def _normalize_project_stage_status(value: str | None) -> str:
     return status
 
 
-def _is_project_stage_claim_complete(value: object) -> bool:
+async def _is_project_stage_claim_complete(value: object) -> bool:
     try:
         return _normalize_project_stage_status(str(value or "")) in {"done", "complete_stage"}
     except HTTPException:
         return False
 
 
-def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
+async def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
     clean_name = str(repo_name or "").strip()
     clean_lower = clean_name.lower()
     for key in project_baseline.keys():
@@ -569,7 +569,7 @@ def _project_baseline_key(project_baseline: dict, repo_name: str) -> str:
     return clean_name
 
 
-def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
+async def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], str | None, str | None]:
     thread: list[dict] = []
     latest_admin_comment_at: str | None = None
     latest_student_reply_at: str | None = None
@@ -595,7 +595,7 @@ def _serialize_certificate_thread(rows: list[ActivityLog]) -> tuple[list[dict], 
     return thread, latest_admin_comment_at, latest_student_reply_at
 
 
-def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
+async def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int]) -> dict[int, dict]:
     clean_ids = [int(item) for item in certificate_ids if int(item) > 0]
     if not clean_ids:
         return {}
@@ -625,7 +625,7 @@ def _certificate_thread_map(db: Session, user_id: int, certificate_ids: list[int
     return result
 
 
-def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
+async def _certificate_payload(row: CertificateRecord, username: str | None, thread_meta: dict | None = None) -> dict:
     thread_meta = thread_meta or {}
     return {
         "id": row.id,
@@ -653,17 +653,17 @@ def _certificate_payload(row: CertificateRecord, username: str | None, thread_me
 }
 
 
-def _normalize_suggestion_track_id(value: str | None) -> str | None:
+async def _normalize_suggestion_track_id(value: str | None) -> str | None:
     clean = str(value or "").strip()
     return clean or None
 
 
-def _normalize_suggestion_module_url(value: str | None) -> str | None:
+async def _normalize_suggestion_module_url(value: str | None) -> str | None:
     clean = str(value or "").strip()
     return clean or None
 
 
-def _find_locked_certificate_for_track(
+async def _find_locked_certificate_for_track(
     db: Session,
     user_id: int,
     suggestion_track_id: str | None,
@@ -684,7 +684,7 @@ def _find_locked_certificate_for_track(
     return None
 
 
-def _mark_synced_fcc_certificates_as_done(db: Session, user: User, sync_result: dict) -> None:
+async def _mark_synced_fcc_certificates_as_done(db: Session, user: User, sync_result: dict) -> None:
     items = list(sync_result.get("items") or [])
     changed = False
     for item in items:
@@ -721,7 +721,7 @@ def _mark_synced_fcc_certificates_as_done(db: Session, user: User, sync_result: 
 
 
 @router.get("/ping")
-def ping(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def ping(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.add(ActivityLog(user_id=current_user.id, event="heartbeat"))
     db.commit()
     has_recommendation_action = (
@@ -737,7 +737,7 @@ def ping(current_user: User = Depends(get_current_user), db: Session = Depends(g
 
 
 @router.post("/logout")
-def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     current_user.last_seen = func.now()
     db.add(ActivityLog(user_id=current_user.id, event="logout"))
     db.add(current_user)
@@ -745,11 +745,11 @@ def logout(current_user: User = Depends(get_current_user), db: Session = Depends
     return {"ok": True}
 
 
-def _badge_bonus_xp(badges: list[Badge]) -> int:
+async def _badge_bonus_xp(badges: list[Badge]) -> int:
     return sum(badge_reward_xp(item.rarity) for item in badges if item.claimed)
 
 
-def _badge_rank_weight(badge: Badge) -> tuple[int, int, int, str]:
+async def _badge_rank_weight(badge: Badge) -> tuple[int, int, int, str]:
     rarity_order = {"legendary": 5, "epic": 4, "rare": 3, "uncommon": 2, "common": 1}
     return (
         1 if badge.claimed else 0,
@@ -759,7 +759,7 @@ def _badge_rank_weight(badge: Badge) -> tuple[int, int, int, str]:
     )
 
 
-def _badge_payload(item: Badge) -> dict:
+async def _badge_payload(item: Badge) -> dict:
     visuals = badge_visuals(item.label, item.rarity, item.description)
     reward_xp = badge_reward_xp(item.rarity)
     clean_description = re.sub(r"^\[Category:\s*.+?\]\s*", "", item.description or "").strip()
@@ -775,7 +775,7 @@ def _badge_payload(item: Badge) -> dict:
     }
 
 
-def _generated_badge_payload(item: dict) -> dict:
+async def _generated_badge_payload(item: dict) -> dict:
     label = str(item.get("label") or "").strip()
     rarity = str(item.get("rarity") or "common").strip().lower() or "common"
     description = str(item.get("description") or "").strip()
@@ -796,7 +796,7 @@ def _generated_badge_payload(item: dict) -> dict:
     }
 
 
-def _repair_reintroduced_badge_claims(db: Session, user_id: int) -> None:
+async def _repair_reintroduced_badge_claims(db: Session, user_id: int) -> None:
     already_repaired = (
         db.query(ActivityLog)
         .filter(ActivityLog.user_id == user_id, ActivityLog.event == BADGE_REPAIR_EVENT)
@@ -836,14 +836,14 @@ def _repair_reintroduced_badge_claims(db: Session, user_id: int) -> None:
     db.commit()
 
 
-def _safe_fetch_commit_streak_days(username: str, token: str | None = None) -> int:
+async def _safe_fetch_commit_streak_days(username: str, token: str | None = None) -> int:
     try:
         return int(fetch_commit_streak_days(username, token=token) or 0)
     except Exception:
         return 0
 
 
-def _active_repos_last_30_days(repos: list[Repo]) -> int:
+async def _active_repos_last_30_days(repos: list[Repo]) -> int:
     cutoff = dt.datetime.utcnow() - dt.timedelta(days=30)
     count = 0
     for repo in repos:
@@ -861,7 +861,7 @@ def _active_repos_last_30_days(repos: list[Repo]) -> int:
     return count
 
 
-def _weekly_commit_rows(db: Session, user_id: int, *, fallback_commits: int) -> list[dict]:
+async def _weekly_commit_rows(db: Session, user_id: int, *, fallback_commits: int) -> list[dict]:
     rows = (
         db.query(EngagementCommit)
         .filter(EngagementCommit.user_id == user_id)
@@ -888,7 +888,7 @@ def _weekly_commit_rows(db: Session, user_id: int, *, fallback_commits: int) -> 
     ]
 
 
-def _skill_domain_payload(practice_dimensions: list[dict]) -> tuple[list[dict], dict | None]:
+async def _skill_domain_payload(practice_dimensions: list[dict]) -> tuple[list[dict], dict | None]:
     competency_levels = build_competency_levels(practice_dimensions)
     domains = [
         {
@@ -906,7 +906,7 @@ def _skill_domain_payload(practice_dimensions: list[dict]) -> tuple[list[dict], 
     return domains, focus
 
 
-def _build_badge_context(
+async def _build_badge_context(
     db: Session,
     user: User,
     *,
@@ -1013,11 +1013,11 @@ def _build_badge_context(
     }
 
 
-def _sync_badges(db: Session, user_id: int, generated_badges: list[dict]) -> None:
+async def _sync_badges(db: Session, user_id: int, generated_badges: list[dict]) -> None:
     upsert_badges(db, user_id, generated_badges, preserve_achieved=True, clear_claimed_when_unachieved=False)
 
 
-def _repo_summaries_for_inference(repos: list[Repo]) -> list[dict]:
+async def _repo_summaries_for_inference(repos: list[Repo]) -> list[dict]:
     return [
         {
             "name": repo.name,
@@ -1035,7 +1035,7 @@ def _repo_summaries_for_inference(repos: list[Repo]) -> list[dict]:
     ]
 
 
-def _compute_portfolio_completeness(
+async def _compute_portfolio_completeness(
     user: User,
     repos: list[Repo],
     settings: PortfolioSettings | None,
@@ -1077,13 +1077,13 @@ def _compute_portfolio_completeness(
     return min(100, score)
 
 
-def _learning_path_signature(steps: list[dict]) -> str:
+async def _learning_path_signature(steps: list[dict]) -> str:
     titles = [str(step.get("title") or "").strip().lower() for step in steps if step.get("title")]
     payload = "|".join(titles)
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
-def _issue_learning_path_certificate(db: Session, user: User, steps: list[dict]) -> bool:
+async def _issue_learning_path_certificate(db: Session, user: User, steps: list[dict]) -> bool:
     signature = _learning_path_signature(steps)
     existing = (
         db.query(CertificateRecord)
@@ -1121,7 +1121,7 @@ def _issue_learning_path_certificate(db: Session, user: User, steps: list[dict])
     return True
 
 
-def _sync_inference_from_repo_signals(
+async def _sync_inference_from_repo_signals(
     db: Session,
     user: User,
     repos: list[Repo],
@@ -1164,7 +1164,7 @@ def _sync_inference_from_repo_signals(
 
 
 @router.get("/user/{username}", response_model=UserResponse)
-def get_user(
+async def get_user(
     username: str,
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
@@ -1282,7 +1282,7 @@ def get_user(
 
 
 @router.put("/user/settings", response_model=PortfolioResponse)
-def update_settings(
+async def update_settings(
     payload: PortfolioSettingsIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -1345,7 +1345,7 @@ def update_settings(
 
 
 @router.post("/register", response_model=UserResponse)
-def register(payload: RegistrationIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def register(payload: RegistrationIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     display_name = (payload.display_name or "").strip()
     bio = (payload.bio or "").strip()
     student_id = (payload.student_id or "").strip()
@@ -1392,7 +1392,7 @@ def register(payload: RegistrationIn, db: Session = Depends(get_db), current_use
 
 
 @router.post("/user/recompute", response_model=UserResponse)
-def recompute_insights(
+async def recompute_insights(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1508,7 +1508,7 @@ def recompute_insights(
 
 
 @router.post("/user/claim-badges", response_model=UserResponse)
-def claim_badges(
+async def claim_badges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1520,7 +1520,7 @@ def claim_badges(
 
 
 @router.get("/portfolio/{username}", response_model=PortfolioResponse)
-def get_portfolio(username: str, db: Session = Depends(get_db)):
+async def get_portfolio(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1549,7 +1549,7 @@ def get_portfolio(username: str, db: Session = Depends(get_db)):
 
 
 @router.get("/user/me/portfolio", response_model=PortfolioResponse)
-def get_owner_portfolio(
+async def get_owner_portfolio(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1582,7 +1582,7 @@ def get_owner_portfolio(
 
 
 @router.post("/user/portfolio/generate-summary")
-def generate_portfolio_summary(
+async def generate_portfolio_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1654,7 +1654,7 @@ def generate_portfolio_summary(
 
 
 @router.get("/user/me")
-def get_me(
+async def get_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1674,7 +1674,7 @@ def get_me(
     }
 
 
-def _get_or_create_portfolio_settings(db: Session, user_id: int) -> PortfolioSettings:
+async def _get_or_create_portfolio_settings(db: Session, user_id: int) -> PortfolioSettings:
     settings_row = db.query(PortfolioSettings).filter(PortfolioSettings.user_id == user_id).one_or_none()
     if settings_row:
         return settings_row
@@ -1685,7 +1685,7 @@ def _get_or_create_portfolio_settings(db: Session, user_id: int) -> PortfolioSet
     return settings_row
 
 
-def _portfolio_signal_labels(repos: list[Repo], limit: int = 5) -> list[str]:
+async def _portfolio_signal_labels(repos: list[Repo], limit: int = 5) -> list[str]:
     counts: dict[str, int] = {}
     for repo in repos:
         values = list(repo.languages or [])
@@ -1701,7 +1701,7 @@ def _portfolio_signal_labels(repos: list[Repo], limit: int = 5) -> list[str]:
     return [label for label, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]]
 
 
-def _join_labels(items: list[str]) -> str:
+async def _join_labels(items: list[str]) -> str:
     cleaned = [str(item).strip() for item in items if str(item).strip()]
     if not cleaned:
         return ""
@@ -1712,7 +1712,7 @@ def _join_labels(items: list[str]) -> str:
     return f"{', '.join(cleaned[:-1])}, and {cleaned[-1]}"
 
 
-def _fallback_portfolio_summary(
+async def _fallback_portfolio_summary(
     *,
     user: User,
     repos: list[Repo],
@@ -1758,7 +1758,7 @@ def _fallback_portfolio_summary(
 
 
 @router.get("/leaderboard", response_model=list[LeaderboardEntryOut])
-def get_leaderboard(db: Session = Depends(get_db)):
+async def get_leaderboard(db: Session = Depends(get_db)):
     users = db.query(User).filter(User.role == "student").all()
     entry_rows: list[tuple[LeaderboardEntryOut, list[Badge]]] = []
     current_week = week_start_for_date(dt.datetime.utcnow())
@@ -1823,7 +1823,7 @@ def get_leaderboard(db: Session = Depends(get_db)):
 
 
 @router.get("/learning-path/{username}", response_model=LearningPathResponse)
-def get_learning_path(
+async def get_learning_path(
     username: str,
     db: Session = Depends(get_db),
 ):
@@ -2007,7 +2007,7 @@ def get_learning_path(
 
 
 @router.get("/curriculum-map/{username}", response_model=CurriculumMapOut)
-def get_curriculum_map(username: str, db: Session = Depends(get_db)):
+async def get_curriculum_map(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -2052,7 +2052,7 @@ def get_curriculum_map(username: str, db: Session = Depends(get_db)):
 
 
 @router.get("/recommendations/v2/{username}", response_model=RuleRecommendationListOut)
-def get_rule_recommendations(username: str, db: Session = Depends(get_db)):
+async def get_rule_recommendations(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -2142,7 +2142,7 @@ def get_rule_recommendations(username: str, db: Session = Depends(get_db)):
 
 
 @router.get("/digest/weekly/{username}", response_model=WeeklyDigestOut)
-def get_weekly_digest(username: str, db: Session = Depends(get_db)):
+async def get_weekly_digest(username: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -2150,7 +2150,7 @@ def get_weekly_digest(username: str, db: Session = Depends(get_db)):
 
 
 @router.post("/certificates/submit", response_model=CertificateOut)
-def submit_certificate(
+async def submit_certificate(
     payload: CertificateSubmitIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2199,7 +2199,7 @@ def submit_certificate(
 
 
 @router.post("/certificates/claim-reward", response_model=CertificateOut)
-def claim_certificate_reward(
+async def claim_certificate_reward(
     payload: CertificateRewardClaimIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2254,7 +2254,7 @@ def claim_certificate_reward(
 
 
 @router.post("/certificates/auto-stage-proof", response_model=CertificateOut)
-def auto_submit_stage_certificate(
+async def auto_submit_stage_certificate(
     payload: AutoStageCertificateIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2321,7 +2321,7 @@ def auto_submit_stage_certificate(
 
 
 @router.post("/certificates/upload")
-def upload_certificate(
+async def upload_certificate(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2333,7 +2333,7 @@ def upload_certificate(
 
 
 @router.get("/certificates/me", response_model=list[CertificateOut])
-def list_my_certificates(
+async def list_my_certificates(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -2354,7 +2354,7 @@ def list_my_certificates(
 
 
 @router.post("/certificates/comment-reply", response_model=CertificateOut)
-def reply_certificate_comment(
+async def reply_certificate_comment(
     payload: CertificateCommentIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2390,7 +2390,7 @@ def reply_certificate_comment(
 
 
 @router.post("/certificates/comment-reply/delete", response_model=CertificateOut)
-def delete_my_certificate_comment_reply(
+async def delete_my_certificate_comment_reply(
     payload: CertificateStudentCommentDeleteIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2444,7 +2444,7 @@ def delete_my_certificate_comment_reply(
 
 
 @router.post("/certificates/progress-delete", response_model=CertificateOut | dict)
-def delete_certificate_progress(
+async def delete_certificate_progress(
     payload: CertificateProgressDeleteIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2488,7 +2488,7 @@ def delete_certificate_progress(
 
 
 @router.get("/certificates/fcc-progress", response_model=FccModuleProgressListOut)
-def list_my_fcc_module_progress(
+async def list_my_fcc_module_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -2505,7 +2505,7 @@ def list_my_fcc_module_progress(
 
 
 @router.put("/learning-path/projects/stage-status", response_model=ProjectStageStatusOut)
-def update_project_stage_status(
+async def update_project_stage_status(
     payload: ProjectStageStatusIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2614,7 +2614,7 @@ def update_project_stage_status(
 
 
 @router.put("/learning-path/projects/stage-progress-update", response_model=ProjectStageProgressUpdateOut)
-def update_project_stage_progress_update(
+async def update_project_stage_progress_update(
     payload: ProjectStageProgressUpdateIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2794,7 +2794,7 @@ def update_project_stage_progress_update(
 
 
 @router.post("/learning-path/projects/stage-feedback-reply", response_model=ProjectStageProgressUpdateOut)
-def reply_project_stage_feedback(
+async def reply_project_stage_feedback(
     payload: ProjectStageFeedbackReplyIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -2905,7 +2905,7 @@ def reply_project_stage_feedback(
 
 
 @router.post("/learning-path/projects/stage-feedback-reply/delete", response_model=ProjectStageProgressUpdateOut)
-def delete_project_stage_feedback_reply(
+async def delete_project_stage_feedback_reply(
     payload: ProjectStageFeedbackReplyDeleteIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3027,7 +3027,7 @@ def delete_project_stage_feedback_reply(
 
 
 @router.post("/learning-path/projects/stage-progress-update/delete", response_model=ProjectStageProgressUpdateOut)
-def delete_project_stage_progress_update(
+async def delete_project_stage_progress_update(
     payload: ProjectStageProgressDeleteIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3195,7 +3195,7 @@ def delete_project_stage_progress_update(
 
 
 @router.delete("/learning-path/projects/stage-proof", response_model=ProjectStageProgressUpdateOut)
-def delete_project_stage_proof(
+async def delete_project_stage_proof(
     payload: ProjectStageProofDeleteIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3289,7 +3289,7 @@ def delete_project_stage_proof(
 
 
 @router.put("/certificates/fcc-progress/{module_key}", response_model=FccModuleProgressOut)
-def upsert_my_fcc_module_progress(
+async def upsert_my_fcc_module_progress(
     module_key: str,
     payload: FccModuleProgressIn,
     db: Session = Depends(get_db),
@@ -3335,7 +3335,7 @@ def upsert_my_fcc_module_progress(
 
 
 @router.get("/learning-accounts", response_model=LearningAccountsOut)
-def get_learning_accounts(
+async def get_learning_accounts(
     current_user: User = Depends(get_current_user),
 ):
     return {
@@ -3346,7 +3346,7 @@ def get_learning_accounts(
 
 
 @router.put("/learning-accounts", response_model=LearningAccountsOut)
-def update_learning_accounts(
+async def update_learning_accounts(
     payload: LearningAccountsIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3364,7 +3364,7 @@ def update_learning_accounts(
 
 
 @router.get("/learning-accounts/freecodecamp/stats", response_model=LearningAccountStatsOut)
-def get_my_freecodecamp_stats(
+async def get_my_freecodecamp_stats(
     refresh_public: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3373,7 +3373,7 @@ def get_my_freecodecamp_stats(
 
 
 @router.post("/learning-accounts/freecodecamp/sync", response_model=AutoSyncResultOut)
-def sync_my_freecodecamp_certificates(
+async def sync_my_freecodecamp_certificates(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -3382,7 +3382,7 @@ def sync_my_freecodecamp_certificates(
     return result
 
 
-def _goal_payload(row: StudentGoal) -> dict:
+async def _goal_payload(row: StudentGoal) -> dict:
     return {
         "id": row.id,
         "user_id": row.user_id,
@@ -3399,7 +3399,7 @@ def _goal_payload(row: StudentGoal) -> dict:
 
 
 @router.get("/goals/me", response_model=list[StudentGoalOut])
-def list_my_goals(
+async def list_my_goals(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -3413,7 +3413,7 @@ def list_my_goals(
 
 
 @router.post("/goals/me", response_model=StudentGoalOut)
-def create_my_goal(
+async def create_my_goal(
     payload: StudentGoalIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3445,7 +3445,7 @@ def create_my_goal(
 
 
 @router.put("/goals/me/{goal_id}", response_model=StudentGoalOut)
-def update_my_goal(
+async def update_my_goal(
     goal_id: int,
     payload: StudentGoalUpdateIn,
     db: Session = Depends(get_db),
@@ -3488,7 +3488,7 @@ def update_my_goal(
 
 
 @router.delete("/goals/me/{goal_id}")
-def delete_my_goal(
+async def delete_my_goal(
     goal_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3507,7 +3507,7 @@ def delete_my_goal(
 
 
 @router.get("/validations/me", response_model=list[ProjectValidationOut])
-def list_my_project_validations(
+async def list_my_project_validations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -3532,7 +3532,7 @@ def list_my_project_validations(
 
 
 @router.post("/recommendations/action")
-def track_recommendation_action(
+async def track_recommendation_action(
     payload: RecommendationActionIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3585,7 +3585,7 @@ def track_recommendation_action(
     return {"ok": True}
 
 @router.get("/quests/daily", response_model=QuestListOut)
-def get_daily_quests(
+async def get_daily_quests(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -3617,7 +3617,7 @@ def get_daily_quests(
 
 
 @router.post("/quests/daily/claim")
-def claim_daily_quest(
+async def claim_daily_quest(
     payload: QuestClaimIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3657,7 +3657,7 @@ def claim_daily_quest(
 
 
 @router.get("/challenges/weekly", response_model=ChallengeListOut)
-def get_weekly_challenges(
+async def get_weekly_challenges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -3687,7 +3687,7 @@ def get_weekly_challenges(
 
 
 @router.post("/challenges/weekly/claim")
-def claim_weekly_challenge(
+async def claim_weekly_challenge(
     payload: ChallengeClaimIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -3725,7 +3725,7 @@ def claim_weekly_challenge(
 
 
 @router.get("/learning-path/projects/{username}", response_model=ProjectLearningPathResponse)
-def get_project_learning_paths(
+async def get_project_learning_paths(
     username: str,
     db: Session = Depends(get_db),
 ):
@@ -3903,7 +3903,7 @@ def get_project_learning_paths(
 
 
 @router.get("/certificate-suggestions/{username}", response_model=CertificateSuggestionListOut)
-def get_certificate_suggestions(
+async def get_certificate_suggestions(
     username: str,
     db: Session = Depends(get_db),
 ):
@@ -4005,7 +4005,7 @@ def get_certificate_suggestions(
 
 
 @router.post("/learning-path/projects/claim-reward", response_model=ProjectLearningPathClaimOut)
-def claim_project_learning_path_reward(
+async def claim_project_learning_path_reward(
     payload: ProjectLearningPathClaimIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -4143,7 +4143,7 @@ def claim_project_learning_path_reward(
 
 
 @router.post("/learning-path/projects/reset-stages", response_model=ProjectStageResetOut)
-def reset_project_learning_path_stages(
+async def reset_project_learning_path_stages(
     payload: ProjectStageResetIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

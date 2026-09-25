@@ -2,6 +2,11 @@ import logging
 import os
 from threading import Thread
 
+# Raise anyio's per-worker thread-pool cap early, before any request arrives.
+# FastAPI runs sync dependencies/routes in this pool; the default of 40 threads
+# is easily exhausted under concurrent load when sync code is still present.
+os.environ.setdefault("ANYIO_WORKER_THREADS", "80")
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -127,7 +132,7 @@ app.add_middleware(
 )
 
 @app.get("/")
-def root():
+async def root():
     return {"status": "ok"}
 
 
@@ -147,7 +152,7 @@ def startup_event():
 
 
 @app.get("/health")
-def health():
+async def health():
     return {"status": "ok"}
 
 # Serve uploaded files from app/static/uploads at /static/uploads

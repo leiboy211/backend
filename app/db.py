@@ -53,7 +53,7 @@ def ensure_schema_initialized(force: bool = False) -> None:
         _schema_initialized = True
 
 
-def get_db():
+async def get_db():
     ensure_schema_initialized()
     db = SessionLocal()
     try:
