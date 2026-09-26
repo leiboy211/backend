@@ -745,7 +745,12 @@ def logout(current_user: User = Depends(get_current_user), db: Session = Depends
 
 
 def _badge_bonus_xp(badges: list[Badge]) -> int:
-    return sum(badge_reward_xp(item.rarity) for item in badges if item.claimed)
+    """Return claimed badge XP synchronously for leaderboard totals."""
+    return sum(
+        badge_reward_xp(item.rarity)
+        for item in badges
+        if item.claimed
+    )
 
 
 def _badge_rank_weight(badge: Badge) -> tuple[int, int, int, str]:
@@ -1758,7 +1763,8 @@ def get_leaderboard(db: Session = Depends(get_db)):
         repos = db.query(Repo).filter(Repo.user_id == user.id).all()
         gamification = compute_xp_and_badges([repo.__dict__ for repo in repos])
         badge_rows = db.query(Badge).filter(Badge.user_id == user.id).all()
-        total_xp = gamification.xp + _badge_bonus_xp(badge_rows) + int(user.bonus_xp or 0)
+        badge_bonus_xp = _badge_bonus_xp(badge_rows)
+        total_xp = gamification.xp + badge_bonus_xp + int(user.bonus_xp or 0)
         level = level_from_xp(total_xp)
         next_level_xp = next_level_xp_for_total(total_xp)
         runway_remaining_xp = max(0, next_level_xp - total_xp)
