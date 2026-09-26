@@ -204,6 +204,7 @@ def github_callback(request: Request, code: str = Query(...), db: Session = Depe
         record_login(db, user, ip_address, device)
     except Exception as exc:
         # Login should still succeed even if the analytics write fails.
+        db.rollback()
         logger.warning("Login activity record failed for user %s: %s", user.username, str(exc)[:240])
 
     jwt_token = create_access_token(str(user.id), settings.jwt_secret, settings.jwt_issuer, role=user.role)

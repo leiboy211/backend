@@ -6,6 +6,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.models import LoginActivity, User
 
 
@@ -24,17 +25,32 @@ def record_login(
     now = dt.datetime.now(tz=MANILA_TZ)
     login_date = now.date().isoformat()
     login_hour = now.hour
-    db.add(
-        LoginActivity(
-            user_id=user.id,
-            login_timestamp=now,
-            login_date=login_date,
-            login_hour=login_hour,
-            ip_address=ip_address,
-            device=device,
-        )
+    activity = LoginActivity(
+        user_id=user.id,
+        login_timestamp=now,
+        login_date=login_date,
+        login_hour=login_hour,
+        ip_address=ip_address,
+        device=device,
     )
-    db.commit()
+    db.add(activity)
+    try:
+        db.commit()
+    except IntegrityError:
+        # A stale PostgreSQL sequence can collide once after a data import.
+        # Roll back and retry so analytics cannot block authentication.
+        db.rollback()
+        db.add(
+            LoginActivity(
+                user_id=user.id,
+                login_timestamp=now,
+                login_date=login_date,
+                login_hour=login_hour,
+                ip_address=ip_address,
+                device=device,
+            )
+        )
+        db.commit()
 
 
 def daily_login_counts(db: Session, days: int = 14) -> list[dict]:
