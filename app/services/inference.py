@@ -7,6 +7,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.services import flan_t5
 from app.services import llm_refiner
+from app.services import ml_fallback
 from app.services.inference_utils import _pad_career_suggestions
 from app.services.learning_path import (
     _dimension_key_from_label,
@@ -144,6 +145,12 @@ def infer_practice_and_careers(repos: list[dict]) -> dict:
         return flan_t5.infer_practice_and_careers(_flan_model(), repos)
     except Exception as exc:
         logger.warning("Using deterministic inference fallback: %s", exc)
+        ml_result = ml_fallback.recommend(repos)
+        if ml_result:
+            return {
+                "practice_dimensions": ml_result.get("practice_dimensions", []),
+                "career_suggestions": _pad_career_suggestions(ml_result.get("career_suggestions", [])),
+            }
         return _fallback_practice_and_careers(repos)
 
 
@@ -440,6 +447,28 @@ def _prepare_rule_based_learning_fallback(
     return fallback_steps
 
 
+def _prepare_ml_learning_fallback(repos: list[dict]) -> list[dict]:
+    ml_result = ml_fallback.recommend(repos)
+    if not ml_result:
+        return []
+    steps = []
+    for index, item in enumerate(ml_result.get("learning_path") or [], start=1):
+        title = str(item).strip()
+        if not title:
+            continue
+        steps.append(
+            {
+                "title": title,
+                "description": f"Complete the {title} milestone using evidence from your GitHub portfolio.",
+                "reason": "Selected by the trained IT/CS career-fit fallback model.",
+                "tag": "ml-fallback",
+                "tags": ["ml-fallback", "career-fit"],
+                "stage": index,
+            }
+        )
+    return _normalize_steps({"steps": steps}, max_steps=8, enforce_contract=False)
+
+
 def infer_learning_path(
     repos: list[dict],
     detected_skills: list[str] | None = None,
@@ -463,11 +492,11 @@ def infer_learning_path(
         )
     except Exception as exc:
         logger.warning("FLAN-T5 learning-path generation failed, using rule-based fallback: %s", exc)
-        steps = fallback_steps
+        steps = _prepare_ml_learning_fallback(repos) or fallback_steps
     else:
         if not _learning_steps_are_usable(steps):
             logger.warning("FLAN-T5 learning-path output was incomplete, using rule-based fallback.")
-            steps = fallback_steps
+            steps = _prepare_ml_learning_fallback(repos) or fallback_steps
 
     if llm_refiner.is_enabled():
         try:
