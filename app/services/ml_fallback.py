@@ -87,8 +87,8 @@ def recommend(repos: list[dict]) -> dict | None:
                     "title": career_track,
                     "confidence": confidence,
                     "reasoning": (
-                        "ML fallback matched repository languages, descriptions, topics, and code signals "
-                        f"to the {career_track} track."
+                        "Based on the technologies, project descriptions, topics, and code patterns "
+                        f"found in your repositories, this track may be a good fit."
                     ),
                     "fit_score": fit_score,
                     "detected_skills": detected_skills[:12],

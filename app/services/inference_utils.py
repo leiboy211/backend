@@ -30,22 +30,22 @@ DEFAULT_CAREER_SUGGESTIONS = [
     {
         "title": "Frontend Developer",
         "confidence": 50,
-        "reasoning": "Baseline track suggested until more repo signals are available.",
+        "reasoning": "Initial recommendation based on the information currently available in your profile.",
     },
     {
         "title": "Backend Developer",
         "confidence": 50,
-        "reasoning": "Baseline track suggested until more repo signals are available.",
+        "reasoning": "Initial recommendation based on the information currently available in your profile.",
     },
     {
         "title": "Data or AI Developer",
         "confidence": 50,
-        "reasoning": "Baseline track suggested until more repo signals are available.",
+        "reasoning": "Initial recommendation based on the information currently available in your profile.",
     },
     {
         "title": "DevOps or Systems Developer",
         "confidence": 50,
-        "reasoning": "Baseline track suggested until more repo signals are available.",
+        "reasoning": "Initial recommendation based on the information currently available in your profile.",
     },
 ]
 
