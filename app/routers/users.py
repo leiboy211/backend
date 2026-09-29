@@ -1498,8 +1498,12 @@ def recompute_insights(
     db.commit()
     try:
         refresh_engagement(db, current_user)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Engagement is auxiliary to recompute. If its historical-table
+        # sequence is stale, recover the session so the new recommendations
+        # can still be returned instead of raising PendingRollbackError.
+        db.rollback()
+        logger.warning("Engagement refresh skipped after recompute: %s", str(exc)[:240])
     return get_user(current_user.username, db=db)
 
 
