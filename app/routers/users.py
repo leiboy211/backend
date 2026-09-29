@@ -1873,6 +1873,9 @@ def get_learning_path(
     skill_gaps = identify_skill_gaps(competency_levels)
     signals = build_signal_set(summaries, include_repo_identity=False)
     signals.add(f"personalization:{username}")
+    # Bump this whenever the inference/fallback pipeline changes so saved
+    # learning paths are regenerated instead of silently serving old output.
+    signals.add("recommendation-engine:v6-ml-fallback")
     baseline_payload = portfolio_settings.learning_path_baseline or []
     baseline_signals_list: list[str] = []
     cached_signals_list: list[str] = []
@@ -3805,6 +3808,7 @@ def get_project_learning_paths(
         repo_signals = build_signal_set([repo] if repo else [], include_repo_identity=False)
         repo_signals.add(f"personalization:{username}")
         repo_signals.add("project-learning-path-schema:v5-canonical-domain-stages")
+        repo_signals.add("recommendation-engine:v6-ml-fallback")
         baseline_key = _project_baseline_key(project_baseline, repo_name)
         baseline_entry = project_baseline.get(baseline_key) or []
         baseline_signals_list: list[str] = []
