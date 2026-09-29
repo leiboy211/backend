@@ -99,7 +99,22 @@ def _generate_text_remote(model_name: str, prompt: str, max_new_tokens: int = 51
                 settings.hf_space_url.rstrip("/"),
                 hf_token=settings.hf_token or None,
             )
-            result = client.predict(prompt, api_name="/generate")
+            # The Space should expose /generate. Try the explicit endpoint
+            # first, then tolerate older Gradio builds that expose the same
+            # endpoint without the leading slash. The fn_index fallback keeps
+            # inference working for an already-running Space whose API schema
+            # has not refreshed yet.
+            try:
+                result = client.predict(prompt, api_name="/generate")
+            except Exception as endpoint_exc:
+                logger.warning(
+                    "HF Space /generate endpoint failed; trying compatibility fallback: %s",
+                    str(endpoint_exc)[:240],
+                )
+                try:
+                    result = client.predict(prompt, api_name="generate")
+                except Exception:
+                    result = client.predict(prompt, fn_index=0)
         except Exception as exc:
             logger.error("Hugging Face Space inference failed: %s", str(exc)[:240])
             raise RuntimeError("Hugging Face Space inference failed.") from exc
