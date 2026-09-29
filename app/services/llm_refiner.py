@@ -347,6 +347,95 @@ def _compact_dimension(item: dict) -> dict[str, Any]:
     }
 
 
+def refine_career_result(result: dict, repos: list[dict]) -> dict:
+    """Improve a FLAN-T5/ML career result while preserving its evidence."""
+    if not result or not _enabled():
+        return result
+
+    career_suggestions = [
+        {
+            "title": item.get("title"),
+            "confidence": item.get("confidence"),
+            "reasoning": item.get("reasoning"),
+            "fit_score": item.get("fit_score"),
+            "detected_skills": (item.get("detected_skills") or [])[:12],
+            "missing_skills": (item.get("missing_skills") or [])[:8],
+        }
+        for item in (result.get("career_suggestions") or [])[:4]
+        if isinstance(item, dict)
+    ]
+    dimensions = [_compact_dimension(item) for item in (result.get("practice_dimensions") or [])[:4]]
+    compact_repos = [_compact_repo(repo) for repo in repos[:10]]
+    prompt = (
+        "Refine a student's career-fit result produced by a trained ML classifier.\n"
+        "Return JSON only. Preserve the career titles, confidence values, fit scores, and evidence.\n"
+        "Improve only the reasoning, detected-skill wording, missing-skill wording, and practical clarity.\n"
+        "Do not invent repository facts, skills, grades, or technologies not supported by the input.\n"
+        'Schema: {"practice_dimensions":[{"label":"...","confidence":70,"evidence":["..."]}],'
+        '"career_suggestions":[{"title":"...","confidence":70,"reasoning":"...",'
+        '"fit_score":70,"detected_skills":["..."],"missing_skills":["..."]}]}\n'
+        f"Repositories: {json.dumps(compact_repos, ensure_ascii=False)}\n"
+        f"ML practice dimensions: {json.dumps(dimensions, ensure_ascii=False)}\n"
+        f"ML career result: {json.dumps(career_suggestions, ensure_ascii=False)}"
+    )
+    try:
+        content = _chat_completion(
+            [
+                {
+                    "role": "system",
+                    "content": "You improve explainable IT and computer-science career recommendations using only portfolio evidence.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1400,
+        )
+        parsed = _extract_json(content)
+    except Exception as exc:
+        logger.info("Career LLM refiner skipped after request/parse failure: %s", str(exc)[:240])
+        return result
+
+    refined = dict(result)
+    refined_dimensions = parsed.get("practice_dimensions")
+    if isinstance(refined_dimensions, list) and refined_dimensions:
+        refined["practice_dimensions"] = [
+            {
+                "label": str(item.get("label") or "").strip(),
+                "confidence": max(0, min(100, int(item.get("confidence") or 0))),
+                "evidence": [str(value).strip() for value in (item.get("evidence") or []) if str(value).strip()][:5],
+            }
+            for item in refined_dimensions
+            if isinstance(item, dict) and str(item.get("label") or "").strip()
+        ][:4]
+
+    refined_careers = parsed.get("career_suggestions")
+    if not isinstance(refined_careers, list) or len(refined_careers) < 1:
+        return result
+    original_by_title = {
+        str(item.get("title") or "").strip(): item
+        for item in career_suggestions
+        if str(item.get("title") or "").strip()
+    }
+    normalized_careers: list[dict] = []
+    for item in refined_careers[:4]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        if not title:
+            continue
+        original = original_by_title.get(title, {})
+        next_item = dict(original)
+        next_item["title"] = title
+        next_item["confidence"] = max(0, min(100, int(original.get("confidence") or item.get("confidence") or 0)))
+        next_item["reasoning"] = str(item.get("reasoning") or original.get("reasoning") or "").strip()
+        for key in ("fit_score", "detected_skills", "missing_skills"):
+            if key in original:
+                next_item[key] = original[key]
+        normalized_careers.append(next_item)
+    if normalized_careers:
+        refined["career_suggestions"] = normalized_careers
+    return refined
+
+
 def refine_learning_steps(steps: list[dict], repos: list[dict]) -> list[dict]:
     """Polish FLAN-T5 learning steps without changing the system contract.
 

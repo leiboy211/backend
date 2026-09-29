@@ -147,10 +147,13 @@ def infer_practice_and_careers(repos: list[dict]) -> dict:
         logger.warning("Using deterministic inference fallback: %s", exc)
         ml_result = ml_fallback.recommend(repos)
         if ml_result:
-            return {
+            combined_result = {
                 "practice_dimensions": ml_result.get("practice_dimensions", []),
                 "career_suggestions": _pad_career_suggestions(ml_result.get("career_suggestions", [])),
             }
+            if llm_refiner.is_enabled():
+                combined_result = llm_refiner.refine_career_result(combined_result, repos)
+            return combined_result
         return _fallback_practice_and_careers(repos)
 
 
